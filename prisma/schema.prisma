@@ -1,0 +1,242 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["Zephira"]
+}
+
+model CATEGORIA {
+  CD_CATEGORIA       Int                  @id @default(autoincrement())
+  NM_CATEGORIA       String               @db.VarChar(255)
+  DS_SLUG            String               @db.VarChar(255)
+  DS_URL_IMAGEM      String?
+  CD_CATEGORIA_PAI   Int?
+  TS_CRIACAO         DateTime?            @default(now()) @db.Timestamptz(6)
+  SN_ATIVO           Int                  @default(1)
+  CATEGORIA          CATEGORIA?           @relation("CATEGORIAToCATEGORIA", fields: [CD_CATEGORIA_PAI], references: [CD_CATEGORIA], onDelete: Cascade, map: "fk_cd_categoria_pai")
+  other_CATEGORIA    CATEGORIA[]          @relation("CATEGORIAToCATEGORIA")
+  PRODUTOS_CATEGORIA PRODUTOS_CATEGORIA[]
+
+  @@index([CD_CATEGORIA_PAI], map: "idx_categorias_pai")
+  @@schema("Zephira")
+}
+
+model ENDERECO {
+  CD_ENDERECO    Int       @id @default(autoincrement())
+  CD_USUARIO     Int
+  NR_CEP         String    @db.VarChar(20)
+  NM_LOGRADOURO  String    @db.VarChar(255)
+  NR_NUMERO      String    @db.VarChar(20)
+  DS_COMPLEMENTO String    @db.VarChar(255)
+  NM_BAIRRO      String    @db.VarChar(255)
+  NM_CIDADE      String    @db.VarChar(255)
+  DS_UF          String    @db.Char(2)
+  TS_CRIACAO     DateTime? @default(now()) @db.Timestamptz(6)
+  USUARIO        USUARIO   @relation(fields: [CD_USUARIO], references: [CD_USUARIO], onDelete: NoAction, map: "fk_cd_usuario")
+
+  @@index([CD_USUARIO], map: "idx_enderecos_usuario")
+  @@schema("Zephira")
+}
+
+model IMAGENS_PRODUTO {
+  CD_IMAGEM    Int       @id @default(autoincrement())
+  CD_PRODUTO   Int
+  DS_URL       String
+  SN_PRINCIPAL String    @default(dbgenerated("0")) @db.Char(1)
+  NR_ORDEM     Int?      @default(0)
+  TS_CRIACAO   DateTime? @default(now()) @db.Timestamptz(6)
+  PRODUTOS     PRODUTOS  @relation(fields: [CD_PRODUTO], references: [CD_PRODUTO], onDelete: Cascade, map: "fk_cd_produto")
+
+  @@schema("Zephira")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ITENS_PEDIDO {
+  CD_ITEM             Int                @id @default(autoincrement())
+  CD_PEDIDO           Int
+  CD_VARIACAO         Int?
+  NM_PRODUTO_SNAPSHOT String             @db.VarChar(255)
+  CD_SKU_SNAPSHOT     String?            @db.VarChar(50)
+  QT_ITEM             Int
+  VL_UNITARIO         Decimal            @db.Decimal(12, 2)
+  VL_TOTAL_ITEM       Decimal            @db.Decimal(12, 2)
+  TS_CRIACAO          DateTime?          @default(now()) @db.Timestamptz(6)
+  PEDIDOS             PEDIDOS            @relation(fields: [CD_PEDIDO], references: [CD_PEDIDO], onDelete: Cascade, map: "fk_cd_pedido")
+  VARIACOES_PRODUTO   VARIACOES_PRODUTO? @relation(fields: [CD_VARIACAO], references: [CD_VARIACAO], map: "fk_cd_variacao")
+
+  @@index([CD_PEDIDO], map: "idx_itens_pedido_pedido")
+  @@schema("Zephira")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model PEDIDOS {
+  CD_PEDIDO            Int            @id @default(autoincrement())
+  CD_USUARIO           Int
+  VL_SUBTOTAL          Decimal        @db.Decimal(12, 2)
+  VL_DESCONTO          Decimal?       @default(0) @db.Decimal(12, 2)
+  VL_FRETE             Decimal?       @default(0) @db.Decimal(12, 2)
+  VL_TOTAL             Decimal        @db.Decimal(12, 2)
+  TP_STATUS            STATUS_PEDIDO? @default(PENDENTE)
+  TP_METODO_PAGAMENTO  String?        @db.VarChar(50)
+  CD_RASTREIO          String?        @db.VarChar(100)
+  DS_SNAPSHOT_ENDERECO Json
+  TS_CRIACAO           DateTime?      @default(now()) @db.Timestamptz(6)
+  TS_ATUALIZACAO       DateTime?      @default(now()) @db.Timestamptz(6)
+  ITENS_PEDIDO         ITENS_PEDIDO[]
+  USUARIO              USUARIO        @relation(fields: [CD_USUARIO], references: [CD_USUARIO], onDelete: Cascade, map: "fk_cd_usuario")
+
+  @@index([CD_USUARIO], map: "idx_pedidos_usuario")
+  @@schema("Zephira")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model PRODUTOS {
+  CD_PRODUTO           Int                  @id @default(autoincrement())
+  NM_PRODUTO           String               @db.VarChar(255)
+  DS_SLUG              String               @db.VarChar(255)
+  DS_DESCRICAO         String?
+  VL_PRECO             Decimal              @db.Decimal(12, 2)
+  VL_PRECO_PROMOCIONAL Decimal?             @db.Decimal(12, 2)
+  SN_ATIVO             String?              @default("S") @db.Char(1)
+  DS_METADADOS         Json?                @default("{}")
+  TS_CRIACAO           DateTime?            @default(now()) @db.Timestamptz(6)
+  TS_ATUALIZACAO       DateTime?            @default(now()) @db.Timestamptz(6)
+  IMAGENS_PRODUTO      IMAGENS_PRODUTO[]
+  PRODUTOS_CATEGORIA   PRODUTOS_CATEGORIA[]
+  PRODUTOS_TAGS        PRODUTOS_TAGS[]
+  VARIACOES_PRODUTO    VARIACOES_PRODUTO[]
+
+  @@schema("Zephira")
+}
+
+model PRODUTOS_CATEGORIA {
+  CD_PRODUTO   Int
+  CD_CATEGORIA Int
+  CATEGORIA    CATEGORIA @relation(fields: [CD_CATEGORIA], references: [CD_CATEGORIA], onDelete: Cascade, map: "fk_cd_categoria")
+  PRODUTOS     PRODUTOS  @relation(fields: [CD_PRODUTO], references: [CD_PRODUTO], onDelete: Cascade, map: "fk_cd_produto")
+
+  @@id([CD_PRODUTO, CD_CATEGORIA])
+  @@index([CD_PRODUTO, CD_CATEGORIA], map: "idx_prod_cat_reverso")
+  @@schema("Zephira")
+}
+
+model PRODUTOS_TAGS {
+  CD_PRODUTO Int
+  CD_TAG     Int
+  PRODUTOS   PRODUTOS @relation(fields: [CD_PRODUTO], references: [CD_PRODUTO], onDelete: Cascade, map: "fk_cd_produto")
+  TAGS       TAGS     @relation(fields: [CD_TAG], references: [CD_TAG], onDelete: Cascade, map: "fk_cd_tag")
+
+  @@id([CD_PRODUTO, CD_TAG])
+  @@schema("Zephira")
+}
+
+model TAGS {
+  CD_TAG        Int             @id @default(autoincrement())
+  NM_TAG        String          @db.VarChar(255)
+  DS_SLUG       String          @db.VarChar(255)
+  TS_CRIACAO    DateTime?       @default(now()) @db.Timestamptz(6)
+  PRODUTOS_TAGS PRODUTOS_TAGS[]
+
+  @@schema("Zephira")
+}
+
+model USUARIO {
+  CD_USUARIO       Int             @id @default(autoincrement())
+  NM_USUARIO       String
+  DS_EMAIL         String          @unique(map: "uq_usuario_email")
+  DS_SENHA_HASH    String
+  TP_PERFIL        PERFIL_USUARIO? @default(USUARIO)
+  NR_TELEFONE      String?         @db.VarChar(20)
+  TS_CRIACAO       DateTime?       @default(now()) @db.Timestamptz(6)
+  TS_ATUALIZACAO   DateTime?       @default(now()) @db.Timestamptz(6)
+  CD_AUTH_SUPABASE String?         @unique @db.Uuid
+  ENDERECO         ENDERECO[]
+  PEDIDOS          PEDIDOS[]
+
+  @@index([DS_EMAIL], map: "IDX_USUARIOS_EMAIL")
+  @@index([CD_AUTH_SUPABASE], map: "idx_usuario_auth")
+  @@schema("Zephira")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model VARIACOES_PRODUTO {
+  CD_VARIACAO  Int            @id @default(autoincrement())
+  CD_PRODUTO   Int
+  CD_SKU       String         @unique @db.VarChar(255)
+  DS_TAMANHO   String         @db.VarChar(50)
+  QT_ESTOQUE   Int            @default(0)
+  TS_CRIACAO   DateTime?      @default(now()) @db.Timestamptz(6)
+  ITENS_PEDIDO ITENS_PEDIDO[]
+  PRODUTOS     PRODUTOS       @relation(fields: [CD_PRODUTO], references: [CD_PRODUTO], onDelete: Cascade, map: "fk_cd_produto")
+
+  @@index([CD_PRODUTO], map: "idx_variacoes_produto")
+  @@schema("Zephira")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model PROMOCOES {
+  CD_PROMOCAO      Int           @id @default(autoincrement())
+  NM_PROMOCAO      String        @db.VarChar(100)
+  DS_CODIGO        String        @unique @db.VarChar(50)
+  TP_PROMOCAO      TYPE_PROMOCAO
+  VL_DESCONTO      Decimal?      @db.Decimal(10, 2)
+  VL_PEDIDO_MINIMO Decimal?      @default(0.00) @db.Decimal(10, 2)
+  DT_INICIO        DateTime      @default(now()) @db.Timestamptz(6)
+  DT_FIM           DateTime?     @db.Timestamptz(6)
+  QT_USOS_ATUAL    Int?          @default(0)
+  QT_LIMITE_USO    Int?
+  SN_ATIVO         Int?          @default(1)
+  TS_CRIACAO       DateTime?     @default(now()) @db.Timestamptz(6)
+  TS_ATUALIZACAO   DateTime?     @default(now()) @db.Timestamptz(6)
+
+  @@index([DS_CODIGO], map: "idx_promocoes_codigo")
+  @@schema("Zephira")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model CONFIGURACOES_LOJA {
+  CD_CONFIGURACAO  Int       @id @default(1)
+  NM_LOJA          String    @db.VarChar(100)
+  DS_EMAIL_SUPORTE String?   @db.VarChar(100)
+  NR_TELEFONE      String?   @db.VarChar(20)
+  SG_MOEDA         String?   @default("BRL") @db.VarChar(3)
+  DS_FUSO_HORARIO  String?   @default("UTC-3") @db.VarChar(50)
+  DS_URL_LOGO      String?
+  DS_URL_FAVICON   String?
+  TS_ATUALIZACAO   DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("Zephira")
+}
+
+enum PERFIL_USUARIO {
+  USUARIO
+  ADMIN
+  SUPORTE
+
+  @@schema("Zephira")
+}
+
+enum STATUS_PEDIDO {
+  PENDENTE
+  PAGO
+  PROCESSANDO
+  ENVIADO
+  ENTREGUE
+  CANCELADO
+  DEVOLVIDO
+
+  @@schema("Zephira")
+}
+
+enum TYPE_PROMOCAO {
+  PERCENTUAL
+  VALOR_FIXO
+  FRETE_GRATIS
+  COMPRE_X_LEVE_Y
+
+  @@schema("Zephira")
+}
