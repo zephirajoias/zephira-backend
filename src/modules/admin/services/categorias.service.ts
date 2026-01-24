@@ -46,13 +46,15 @@ WHERE
     SELECT 
       C."CD_CATEGORIA",
       C."NM_CATEGORIA",
+      -- Buscamos o nome do pai usando um alias (P)
+      P."NM_CATEGORIA" AS "NM_CATEGORIA_PAI", 
       C."DS_SLUG",
       C."DS_URL_IMAGEM",
       (
         SELECT COUNT(*)
         FROM "Zephira"."PRODUTOS_CATEGORIA" PC
         WHERE PC."CD_CATEGORIA" = C."CD_CATEGORIA"
-      ) QUANT_PRODUTO_CATEGORIA,
+      ) AS "QT_PRODUTOS", -- Alinhado com sua interface frontend
       C."SN_ATIVO",
       CASE 
         WHEN C."SN_ATIVO" = 1 THEN 'success' 
@@ -60,63 +62,90 @@ WHERE
       END AS ds_css_status
     FROM
       "Zephira"."CATEGORIA" C
+    LEFT JOIN "Zephira"."CATEGORIA" P ON C."CD_CATEGORIA_PAI" = P."CD_CATEGORIA"
+    ORDER BY C."NM_CATEGORIA" ASC
   `;
 
     return this.normalizeBigInt(categoriaDetalhes);
   }
 
   async buscaTodasCategorias(): Promise<any[]> {
-    const categoria = await this.prismaService.cATEGORIA.findMany({
+    const categorias = await this.prismaService.cATEGORIA.findMany({
       select: {
         CD_CATEGORIA: true,
         NM_CATEGORIA: true,
+        CD_CATEGORIA_PAI: true,
+        CATEGORIA: {
+          select: {
+            NM_CATEGORIA: true,
+          },
+        },
       },
     });
 
-    return categoria;
+    return categorias.map((cat) => ({
+      CD_CATEGORIA: cat.CD_CATEGORIA,
+      // Aqui acessamos cat.CATEGORIA (que é o objeto pai)
+      NM_CATEGORIA_DISPLAY: cat.CATEGORIA?.NM_CATEGORIA
+        ? `${cat.CATEGORIA.NM_CATEGORIA} > ${cat.NM_CATEGORIA}`
+        : cat.NM_CATEGORIA,
+    }));
   }
 
   async createCategoria(
     dto: CategoriaCreateDto,
-    file: Express.Multer.File,
+    file?: Express.Multer.File, // 1. Torna o arquivo opcional
   ): Promise<number> {
-    // 1. Definição do Caminho
-    const fileExt = file.originalname.split('.').pop();
-    const fileName = `categorias/${dto.DS_SLUG}-${Date.now()}.${fileExt}`;
+    let publicUrl: string | null = null; // Inicializa como null
 
-    // 2. Upload (Server to Server)
-    const { data, error } = await supabaseAdmin.storage
-      .from('imagens-produtos')
-      .upload(fileName, file.buffer, {
-        // Usa o BUFFER do arquivo
-        contentType: file.mimetype,
-        upsert: false,
-      });
+    // 2. Só processa o upload se o arquivo existir
+    if (file) {
+      const fileExt = file.originalname.split('.').pop();
+      const fileName = `categorias/${dto.DS_SLUG}-${Date.now()}.${fileExt}`;
 
-    if (error) {
-      console.error('Erro Supabase:', error);
-      throw new InternalServerErrorException('Falha no upload da imagem');
+      const { data, error } = await supabaseAdmin.storage
+        .from('imagens-produtos')
+        .upload(fileName, file.buffer, {
+          contentType: file.mimetype,
+          upsert: false,
+        });
+
+      if (error) {
+        console.error('Erro Supabase:', error);
+        throw new InternalServerErrorException('Falha no upload da imagem');
+      }
+
+      // Busca a URL pública após o upload bem-sucedido
+      const { data: urlData } = supabaseAdmin.storage
+        .from('imagens-produtos')
+        .getPublicUrl(fileName);
+
+      publicUrl = urlData.publicUrl;
     }
 
-    // 3. Gerar URL Pública
-    const {
-      data: { publicUrl },
-    } = supabaseAdmin.storage.from('imagens-produtos').getPublicUrl(fileName);
+    // 3. Persistência no banco de dados
+    try {
+      const categoria = await this.prismaService.cATEGORIA.create({
+        data: {
+          NM_CATEGORIA: dto.NM_CATEGORIA,
+          DS_SLUG: dto.DS_SLUG,
+          DS_URL_IMAGEM: publicUrl, // Será null se não houver arquivo
+          SN_ATIVO: Number(dto.SN_ATIVO ?? 1),
+          CD_CATEGORIA_PAI: Number(dto.CD_CATEGORIA_PAI) || null,
+        },
+        select: {
+          CD_CATEGORIA: true,
+        },
+      });
 
-    const categoria = await this.prismaService.cATEGORIA.create({
-      data: {
-        NM_CATEGORIA: dto.NM_CATEGORIA,
-        DS_SLUG: dto.DS_SLUG,
-        DS_URL_IMAGEM: publicUrl,
-        SN_ATIVO: Number(dto.SN_ATIVO || 1),
-        CD_CATEGORIA_PAI: dto.CD_CATEGORIA_PAI || null,
-      },
-      select: {
-        CD_CATEGORIA: true,
-      },
-    });
-
-    return categoria.CD_CATEGORIA;
+      return categoria.CD_CATEGORIA;
+    } catch (dbError) {
+      // Opcional: Lógica para deletar o arquivo no Supabase caso o Prisma falhe (Rollback manual)
+      console.error('Erro ao salvar categoria:', dbError);
+      throw new InternalServerErrorException(
+        'Erro ao salvar categoria no banco de dados',
+      );
+    }
   }
 
   async updateCategoria(
