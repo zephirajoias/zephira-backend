@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -8,6 +9,7 @@ import { USUARIO } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'src/prisma/services/prisma.service';
 import { CreateAdminDto } from '../dto/create-admin.dto';
+import { UpdatePasswordDto } from '../dto/update-admin.dto';
 
 @Injectable()
 export class AdminService {
@@ -666,6 +668,48 @@ FROM
 	"Zephira"."CATEGORIA" C`;
 
     return categoriaDetalhes;
+  }
+
+  async updatePassword(dto: UpdatePasswordDto) {
+    // 1. Busca o usuário no banco
+    const user = await this.prismaService.uSUARIO.findUnique({
+      where: { DS_EMAIL: dto.email },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    // 2. Compara a senha atual enviada com a senha hash do banco
+    const isPasswordMatching = await bcrypt.compare(
+      dto.currentPassword,
+      user.DS_SENHA_HASH,
+    );
+
+    if (!isPasswordMatching) {
+      throw new UnauthorizedException('A senha atual está incorreta.');
+    }
+
+    // 3. Verifica se a senha nova não é igual à antiga (opcional, mas boa prática)
+    if (dto.currentPassword === dto.newPassword) {
+      throw new UnauthorizedException(
+        'A nova senha não pode ser igual à atual.',
+      );
+    }
+
+    // 4. Gera o hash da nova senha
+    const salt = await bcrypt.genSalt();
+    const hashedNewPassword = await bcrypt.hash(dto.newPassword, salt);
+
+    // 5. Atualiza no banco de dados
+    await this.prismaService.uSUARIO.update({
+      where: { DS_EMAIL: dto.email },
+      data: {
+        DS_SENHA_HASH: hashedNewPassword,
+      },
+    });
+
+    return { message: 'Senha atualizada com sucesso!' };
   }
   // findAll() {
   //   return `This action returns all admin`;

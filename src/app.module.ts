@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import * as path from 'path';
+import { AppController } from './app.controller';
 import configuration from './config/configuration';
 import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -42,5 +43,6 @@ const publicKeyPath = path.join(process.cwd(), 'keys/public.pem');
     }),
     AuthModule,
   ],
+  controllers: [AppController],
 })
 export class AppModule {}

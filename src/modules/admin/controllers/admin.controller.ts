@@ -5,11 +5,13 @@ import {
   Get,
   Param,
   Post,
+  Put,
   Res,
   UseGuards,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { CreateAdminDto } from '../dto/create-admin.dto';
+import { UpdatePasswordDto } from '../dto/update-admin.dto';
 import { AdminJwtGuard } from '../guards/admin-jwt.guard';
 import { AdminService } from '../services/admin.service';
 
@@ -57,6 +59,13 @@ export class AdminController {
       console.log(err);
       return res.status(409).json(err);
     }
+  }
+
+  @UseGuards(AdminJwtGuard) // Protege a rota
+  @Put('me/password')
+  async changePassword(@Body() updatePasswordDto: UpdatePasswordDto) {
+    console.log(updatePasswordDto);
+    return this.adminService.updatePassword(updatePasswordDto);
   }
 
   @UseGuards(AdminJwtGuard)
