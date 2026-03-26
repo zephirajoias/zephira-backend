@@ -11,6 +11,10 @@ export class UpdateVariacaoDto extends PartialType(CreateVariacaoDto) {
 
   @IsString()
   @IsNotEmpty()
+  CD_SKU: string;
+
+  @IsString()
+  @IsNotEmpty()
   DS_TAMANHO: string;
 
   @IsNumber()

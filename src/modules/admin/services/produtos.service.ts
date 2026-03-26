@@ -3,6 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
+import sharp from 'sharp';
 import { supabaseAdmin } from 'src/common/supabase/supabase.provider';
 import { PrismaService } from 'src/prisma/services/prisma.service';
 import { CreateProdutoDto, CreateVariacaoDto } from '../dto/create-produto.dto';
@@ -20,6 +21,33 @@ export class ProdutosService {
     );
   }
 
+  private async processImageBuffer(file: Express.Multer.File): Promise<Buffer> {
+    let inputBuffer = file.buffer;
+
+    const mimeType = file.mimetype?.toLowerCase() || '';
+    const originalName = file.originalname?.toLowerCase() || '';
+    const isHeic =
+      mimeType === 'image/heic' ||
+      mimeType === 'image/heif' ||
+      originalName.endsWith('.heic');
+
+    if (isHeic) {
+      const heicConvert = require('heic-convert');
+      // Transforma o HEIC em JPEG puro na memória
+      inputBuffer = await heicConvert({
+        buffer: file.buffer,
+        format: 'JPEG',
+        quality: 1, // Mantemos a qualidade em 100% aqui, o Sharp otimiza depois
+      });
+    }
+
+    // Agora o Sharp recebe um buffer que ele sabe ler (JPEG nativo ou o JPEG convertido do HEIC)
+    return await sharp(inputBuffer)
+      .rotate() // Corrige orientação baseada no EXIF
+      .jpeg({ quality: 80 })
+      .toBuffer();
+  }
+
   async createProduto(
     dto: CreateProdutoDto,
     file: Express.Multer.File,
@@ -29,15 +57,22 @@ export class ProdutosService {
       throw new BadRequestException('Imagem do produto é obrigatória');
     }
 
-    // 2️⃣ Definição do caminho do arquivo
-    const fileExt = file.originalname.split('.').pop();
-    const fileName = `produtos/${dto.DS_SLUG}-${Date.now()}.${fileExt}`;
+    // 2️⃣ Processamento e Conversão da Imagem com Sharp
+    let buffer: Buffer;
+    try {
+      buffer = await this.processImageBuffer(file);
+    } catch (err) {
+      console.error('Erro ao processar imagem:', err);
+      throw new BadRequestException('Falha ao processar arquivo de imagem');
+    }
+
+    const fileName = `produtos/${dto.DS_SLUG}-${Date.now()}.jpg`;
 
     // 3️⃣ Upload no Supabase
     const { error: uploadError } = await supabaseAdmin.storage
       .from('imagens-produtos')
-      .upload(fileName, file.buffer, {
-        contentType: file.mimetype,
+      .upload(fileName, buffer, {
+        contentType: 'image/jpeg',
         upsert: false,
       });
 
@@ -188,11 +223,176 @@ export class ProdutosService {
         CD_VARIACAO: Number(dto.CD_VARIACAO),
       },
       data: {
+        CD_SKU: dto.CD_SKU,
         DS_TAMANHO: dto.DS_TAMANHO,
         QT_ESTOQUE: dto.QT_ESTOQUE,
       },
     });
 
     return variacao;
+  }
+
+  // async updateProduto(cd_produto: number, dto: any): Promise<any> {
+  //   const precoFormatado = dto.VL_PRECO ? Number(dto.VL_PRECO) : undefined;
+  //   const categoriaId = dto.CD_CATEGORIA ? Number(dto.CD_CATEGORIA) : undefined;
+
+  //   return await this.prismaService.$transaction(async (tx) => {
+  //     const produto = await tx.pRODUTOS.update({
+  //       where: { CD_PRODUTO: Number(cd_produto) },
+  //       data: {
+  //         NM_PRODUTO: dto.NM_PRODUTO,
+  //         DS_DESCRICAO: dto.DS_DESCRICAO,
+  //         VL_PRECO: precoFormatado,
+  //         TS_ATUALIZACAO: new Date(),
+  //       },
+  //     });
+
+  //     if (categoriaId) {
+  //       // Remove categorias antigas e adiciona a nova (assumindo 1 categoria por produto por enquanto baseado no schema)
+  //       await tx.pRODUTOS_CATEGORIA.deleteMany({
+  //         where: { CD_PRODUTO: Number(cd_produto) },
+  //       });
+
+  //       await tx.pRODUTOS_CATEGORIA.create({
+  //         data: {
+  //           CD_PRODUTO: Number(cd_produto),
+  //           CD_CATEGORIA: categoriaId,
+  //         },
+  //       });
+  //     }
+
+  //     return produto;
+  //   });
+  // }
+
+  async updateProduto(cd_produto: any, dto: any): Promise<any> {
+    // 1️⃣ Fail-Fast: Sanitização e Validação do ID
+    const idProduto = Number(cd_produto);
+
+    if (isNaN(idProduto) || idProduto <= 0) {
+      throw new BadRequestException(
+        `ID do produto inválido recebido: ${cd_produto}`,
+      );
+    }
+
+    const precoFormatado = dto.VL_PRECO ? Number(dto.VL_PRECO) : undefined;
+    const categoriaId = dto.CD_CATEGORIA ? Number(dto.CD_CATEGORIA) : undefined;
+
+    return await this.prismaService.$transaction(async (tx) => {
+      const produto = await tx.pRODUTOS.update({
+        where: { CD_PRODUTO: idProduto }, // Usa a variável limpa
+        data: {
+          NM_PRODUTO: dto.NM_PRODUTO,
+          DS_DESCRICAO: dto.DS_DESCRICAO,
+          VL_PRECO: precoFormatado,
+          TS_ATUALIZACAO: new Date(),
+        },
+      });
+
+      if (categoriaId) {
+        await tx.pRODUTOS_CATEGORIA.deleteMany({
+          where: { CD_PRODUTO: idProduto }, // Usa a variável limpa
+        });
+
+        await tx.pRODUTOS_CATEGORIA.create({
+          data: {
+            CD_PRODUTO: idProduto, // Usa a variável limpa
+            CD_CATEGORIA: categoriaId,
+          },
+        });
+      }
+
+      return produto;
+    });
+  }
+
+  async uploadImagensProduto(
+    cd_produto: number,
+    files: Express.Multer.File[],
+    ds_slug: string,
+  ): Promise<any> {
+    const uploadedImages: any[] = [];
+
+    for (const file of files) {
+      // Processamento e Conversão da Imagem com Sharp
+      let buffer: Buffer;
+      try {
+        buffer = await this.processImageBuffer(file);
+      } catch (err) {
+        console.error('Erro ao processar imagem:', err);
+        continue; // Pula essa imagem se der erro
+      }
+
+      const fileName = `produtos/${ds_slug}-${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`;
+
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from('imagens-produtos')
+        .upload(fileName, buffer, {
+          contentType: 'image/jpeg',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error(uploadError);
+        continue;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabaseAdmin.storage.from('imagens-produtos').getPublicUrl(fileName);
+
+      const imagem = await this.prismaService.iMAGENS_PRODUTO.create({
+        data: {
+          CD_PRODUTO: Number(cd_produto),
+          DS_URL: publicUrl,
+          SN_PRINCIPAL: '0',
+          TS_CRIACAO: new Date(),
+        },
+      });
+
+      uploadedImages.push(imagem);
+    }
+
+    return uploadedImages;
+  }
+
+  async deleteImagemProduto(cd_imagem: number): Promise<any> {
+    const imagem = await this.prismaService.iMAGENS_PRODUTO.findUnique({
+      where: { CD_IMAGEM: Number(cd_imagem) },
+    });
+
+    if (!imagem) {
+      throw new BadRequestException('Imagem não encontrada');
+    }
+
+    // Extrair o nome do arquivo da URL para deletar no Supabase
+    // Exemplo de URL: https://xyz.supabase.co/storage/v1/object/public/imagens-produtos/produtos/slug-123.jpg
+    const urlParts = imagem.DS_URL.split('/');
+    const fileName = `produtos/${urlParts[urlParts.length - 1]}`;
+
+    await supabaseAdmin.storage.from('imagens-produtos').remove([fileName]);
+
+    return await this.prismaService.iMAGENS_PRODUTO.delete({
+      where: { CD_IMAGEM: Number(cd_imagem) },
+    });
+  }
+
+  async setImagemPrincipal(
+    cd_imagem: number,
+    cd_produto: number,
+  ): Promise<any> {
+    return await this.prismaService.$transaction(async (tx) => {
+      // Remove principal de todas as imagens do produto
+      await tx.iMAGENS_PRODUTO.updateMany({
+        where: { CD_PRODUTO: Number(cd_produto) },
+        data: { SN_PRINCIPAL: '0' },
+      });
+
+      // Define a nova principal
+      return await tx.iMAGENS_PRODUTO.update({
+        where: { CD_IMAGEM: Number(cd_imagem) },
+        data: { SN_PRINCIPAL: '1' },
+      });
+    });
   }
 }

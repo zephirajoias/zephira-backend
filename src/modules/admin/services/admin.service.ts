@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { USUARIO } from '@prisma/client';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'src/prisma/services/prisma.service';
 import { CreateAdminDto } from '../dto/create-admin.dto';
@@ -13,10 +14,18 @@ import { UpdatePasswordDto } from '../dto/update-admin.dto';
 
 @Injectable()
 export class AdminService {
+  // SOLUÇÃO 2: Tipagem flexível para acalmar o TypeScript
+  private supabase: SupabaseClient<any, any, any>;
+
   constructor(
     private readonly prismaService: PrismaService,
     private jwtService: JwtService,
-  ) {}
+  ) {
+    this.supabase = createClient(
+      process.env.SUPABASE_URL as string,
+      process.env.SUPABASE_SERVICE_ROLE_KEY as string,
+    );
+  }
 
   async create(createAdminDto: CreateAdminDto): Promise<USUARIO> {
     const verificarAdmin = await this.prismaService.uSUARIO.findUnique({
@@ -55,38 +64,79 @@ export class AdminService {
   }
 
   async authAdmin(loginAdminDto: CreateAdminDto) {
-    const verificaAdmin = await this.prismaService.uSUARIO.findUnique({
+    // 1. Busca o usuário no banco local (Prisma)
+    const user = await this.prismaService.uSUARIO.findUnique({
       where: { DS_EMAIL: loginAdminDto.DS_EMAIL },
     });
 
-    if (
-      !verificaAdmin ||
-      !(await bcrypt.compare(
-        loginAdminDto.DS_SENHA,
-        verificaAdmin.DS_SENHA_HASH,
-      ))
-    ) {
+    if (!user) {
       throw new UnauthorizedException('Credenciais inválidas.');
     }
 
+    // 2. VERIFICAÇÃO DE USUÁRIO ANTIGO (Ainda não migrado pro Supabase)
+    if (!user.CD_AUTH_SUPABASE) {
+      // 2.1 Verifica a senha usando a lógica antiga (bcrypt)
+      const isPasswordMatching = await bcrypt.compare(
+        loginAdminDto.DS_SENHA,
+        user.DS_SENHA_HASH,
+      );
+
+      if (!isPasswordMatching) {
+        throw new UnauthorizedException('Credenciais inválidas.');
+      }
+
+      // 2.2 Migração Silenciosa: Cria a conta dele no Supabase
+      const { data: authData, error: authError } =
+        await this.supabase.auth.admin.createUser({
+          email: loginAdminDto.DS_EMAIL,
+          password: loginAdminDto.DS_SENHA,
+          email_confirm: true,
+        });
+
+      if (authError) {
+        throw new ConflictException(
+          `Erro ao migrar usuário: ${authError.message}`,
+        );
+      }
+
+      // 2.3 Atualiza o banco salvando o ID do Supabase
+      await this.prismaService.uSUARIO.update({
+        where: { CD_USUARIO: user.CD_USUARIO },
+        data: { CD_AUTH_SUPABASE: authData.user.id },
+      });
+    } else {
+      // 3. SE O USUÁRIO JÁ FOI MIGRADO (Ou é um usuário novo)
+      // Valida a senha usando o cofre do Supabase
+      const { error } = await this.supabase.auth.signInWithPassword({
+        email: loginAdminDto.DS_EMAIL,
+        password: loginAdminDto.DS_SENHA,
+      });
+
+      if (error) {
+        throw new UnauthorizedException('Credenciais inválidas.');
+      }
+    }
+
+    // 4. GERAÇÃO DO SEU JWT CUSTOMIZADO (NestJS)
+    // Chegando aqui, a senha tá validada (seja pelo bcrypt ou pelo Supabase)
     const payload = {
-      sub: verificaAdmin.CD_USUARIO,
-      email: verificaAdmin.DS_EMAIL,
-      roles: verificaAdmin.TP_PERFIL,
-      name: verificaAdmin.NM_USUARIO,
+      sub: user.CD_USUARIO,
+      email: user.DS_EMAIL,
+      roles: user.TP_PERFIL,
+      name: user.NM_USUARIO,
     };
 
     const access_token = this.jwtService.sign(payload);
 
     // Decodificamos o token recém-criado para pegar o 'exp' gerado automaticamente
-    const decoded = this.jwtService.decode(access_token);
+    const decoded: any = this.jwtService.decode(access_token);
 
     return {
       access_token,
       expires_at: decoded.exp, // Retorna o timestamp (ex: 1715832000)
       user: {
-        name: verificaAdmin.NM_USUARIO,
-        role: verificaAdmin.TP_PERFIL,
+        name: user.NM_USUARIO,
+        role: user.TP_PERFIL,
       },
     };
   }
@@ -587,8 +637,19 @@ WHERE
     vp."DS_TAMANHO",
     p."CD_PRODUTO",
     p."NM_PRODUTO",
+    p."DS_DESCRICAO",
+    p."DS_SLUG",
     vp."CD_SKU",
-    COALESCE(img."DS_URL", '/assets/placeholder.png') AS ds_imagem_thumb,
+    (
+        SELECT json_agg(json_build_object('CD_IMAGEM', img."CD_IMAGEM", 'DS_URL', img."DS_URL", 'SN_PRINCIPAL', img."SN_PRINCIPAL"))
+        FROM "Zephira"."IMAGENS_PRODUTO" img
+        WHERE img."CD_PRODUTO" = p."CD_PRODUTO"
+    ) AS "IMAGENS",
+    COALESCE(
+        (SELECT img."DS_URL" FROM "Zephira"."IMAGENS_PRODUTO" img WHERE img."CD_PRODUTO" = p."CD_PRODUTO" AND img."SN_PRINCIPAL" = '1' LIMIT 1),
+        (SELECT img."DS_URL" FROM "Zephira"."IMAGENS_PRODUTO" img WHERE img."CD_PRODUTO" = p."CD_PRODUTO" LIMIT 1),
+        '/assets/placeholder.png'
+    ) AS ds_imagem_thumb,
     c."CD_CATEGORIA",
     c."NM_CATEGORIA",
     p."VL_PRECO",
@@ -608,7 +669,6 @@ FROM
     LEFT JOIN "Zephira"."VARIACOES_PRODUTO" vp ON vp."CD_PRODUTO" = p."CD_PRODUTO"
     LEFT JOIN "Zephira"."PRODUTOS_CATEGORIA" pc ON pc."CD_PRODUTO" = p."CD_PRODUTO"
     LEFT JOIN "Zephira"."CATEGORIA" c ON c."CD_CATEGORIA" = pc."CD_CATEGORIA"
-    LEFT JOIN "Zephira"."IMAGENS_PRODUTO" img ON img."CD_PRODUTO" = p."CD_PRODUTO"
 ORDER BY
     p."NM_PRODUTO" ASC,
     vp."CD_VARIACAO" ASC;
@@ -670,45 +730,149 @@ FROM
     return categoriaDetalhes;
   }
 
+  // async updatePassword(dto: UpdatePasswordDto) {
+  //   // 1. Busca o usuário no banco
+  //   const user = await this.prismaService.uSUARIO.findUnique({
+  //     where: { DS_EMAIL: dto.email },
+  //   });
+
+  //   if (!user) {
+  //     throw new NotFoundException('Usuário não encontrado.');
+  //   }
+
+  //   // 2. Compara a senha atual enviada com a senha hash do banco
+  //   const isPasswordMatching = await bcrypt.compare(
+  //     dto.currentPassword,
+  //     user.DS_SENHA_HASH,
+  //   );
+
+  //   if (!isPasswordMatching) {
+  //     throw new UnauthorizedException('A senha atual está incorreta.');
+  //   }
+
+  //   // 3. Verifica se a senha nova não é igual à antiga (opcional, mas boa prática)
+  //   if (dto.currentPassword === dto.newPassword) {
+  //     throw new UnauthorizedException(
+  //       'A nova senha não pode ser igual à atual.',
+  //     );
+  //   }
+
+  //   // 4. Gera o hash da nova senha
+  //   const salt = await bcrypt.genSalt();
+  //   const hashedNewPassword = await bcrypt.hash(dto.newPassword, salt);
+
+  //   // 5. Atualiza no banco de dados
+  //   await this.prismaService.uSUARIO.update({
+  //     where: { DS_EMAIL: dto.email },
+  //     data: {
+  //       DS_SENHA_HASH: hashedNewPassword,
+  //     },
+  //   });
+
+  //   return { message: 'Senha atualizada com sucesso!' };
+  // }
+
+  // ==========================================
+  // RECUPERAÇÃO DE SENHA (Esqueci a Senha)
+  // ==========================================
+  // ==========================================
+  // RECUPERAÇÃO DE SENHA (Esqueci a Senha - SÓ PARA ADMINS)
+  // ==========================================
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    // Busca o usuário pelo e-mail
+    const user = await this.prismaService.uSUARIO.findUnique({
+      where: { DS_EMAIL: email },
+    });
+
+    // REGRA DE OURO: O usuário tem que existir E ter o perfil de ADMIN.
+    // Se for um cliente comum da loja tentando recuperar a senha pelo painel admin, nós ignoramos.
+    if (!user || user.TP_PERFIL !== 'ADMIN') {
+      // Retornamos a mensagem de sucesso falsa por padrão de segurança (evita Email Enumeration)
+      return {
+        message:
+          'Se o e-mail estiver cadastrado como administrador, um link de recuperação foi enviado.',
+      };
+    }
+
+    // MIGRACÃO SILENCIOSA PARA RECUPERAÇÃO DE SENHA
+    // Se ele for um admin antigo que ainda não migrou pro Supabase:
+    if (!user.CD_AUTH_SUPABASE) {
+      const tempPassword = Math.random().toString(36).slice(-10) + 'A1@';
+
+      const { data: authData, error: authError } =
+        await this.supabase.auth.admin.createUser({
+          email: user.DS_EMAIL,
+          password: tempPassword,
+          email_confirm: true,
+        });
+
+      if (!authError && authData.user) {
+        // Salva o ID do Supabase no banco
+        await this.prismaService.uSUARIO.update({
+          where: { CD_USUARIO: user.CD_USUARIO },
+          data: { CD_AUTH_SUPABASE: authData.user.id },
+        });
+      }
+    }
+
+    // Agora pedimos pro Supabase enviar o e-mail!
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+    const { error } = await this.supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${frontendUrl}/resete-senha`,
+    });
+
+    if (error) {
+      console.error('Erro ao enviar e-mail pelo Supabase:', error.message);
+    }
+
+    return {
+      message:
+        'Se o e-mail estiver cadastrado como administrador, um link de recuperação foi enviado.',
+    };
+  }
+
+  // ==========================================
+  // TROCAR SENHA (Usuário logado no painel)
+  // ==========================================
   async updatePassword(dto: UpdatePasswordDto) {
-    // 1. Busca o usuário no banco
     const user = await this.prismaService.uSUARIO.findUnique({
       where: { DS_EMAIL: dto.email },
     });
 
-    if (!user) {
-      throw new NotFoundException('Usuário não encontrado.');
+    if (!user || !user.CD_AUTH_SUPABASE) {
+      throw new NotFoundException('Usuário não encontrado ou não migrado.');
     }
 
-    // 2. Compara a senha atual enviada com a senha hash do banco
-    const isPasswordMatching = await bcrypt.compare(
-      dto.currentPassword,
-      user.DS_SENHA_HASH,
-    );
-
-    if (!isPasswordMatching) {
-      throw new UnauthorizedException('A senha atual está incorreta.');
-    }
-
-    // 3. Verifica se a senha nova não é igual à antiga (opcional, mas boa prática)
     if (dto.currentPassword === dto.newPassword) {
       throw new UnauthorizedException(
         'A nova senha não pode ser igual à atual.',
       );
     }
 
-    // 4. Gera o hash da nova senha
-    const salt = await bcrypt.genSalt();
-    const hashedNewPassword = await bcrypt.hash(dto.newPassword, salt);
-
-    // 5. Atualiza no banco de dados
-    await this.prismaService.uSUARIO.update({
-      where: { DS_EMAIL: dto.email },
-      data: {
-        DS_SENHA_HASH: hashedNewPassword,
-      },
+    // 1. Tenta "logar" no Supabase para validar se a senha atual está correta
+    const { error: signInError } = await this.supabase.auth.signInWithPassword({
+      email: dto.email,
+      password: dto.currentPassword,
     });
 
+    if (signInError) {
+      throw new UnauthorizedException('A senha atual está incorreta.');
+    }
+
+    // 2. A senha atual está certa! Atualiza a nova senha direto no cofre do Supabase
+    const { error: updateError } =
+      await this.supabase.auth.admin.updateUserById(user.CD_AUTH_SUPABASE, {
+        password: dto.newPassword,
+      });
+
+    if (updateError) {
+      throw new ConflictException(
+        'Erro interno ao atualizar a senha no cofre.',
+      );
+    }
+
+    // Não precisamos mais usar o bcrypt nem atualizar a coluna DS_SENHA_HASH!
     return { message: 'Senha atualizada com sucesso!' };
   }
   // findAll() {

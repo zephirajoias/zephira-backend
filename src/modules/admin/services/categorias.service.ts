@@ -85,6 +85,7 @@ WHERE
 
     return categorias.map((cat) => ({
       CD_CATEGORIA: cat.CD_CATEGORIA,
+      NM_CATEGORIA: cat.NM_CATEGORIA,
       // Aqui acessamos cat.CATEGORIA (que é o objeto pai)
       NM_CATEGORIA_DISPLAY: cat.CATEGORIA?.NM_CATEGORIA
         ? `${cat.CATEGORIA.NM_CATEGORIA} > ${cat.NM_CATEGORIA}`

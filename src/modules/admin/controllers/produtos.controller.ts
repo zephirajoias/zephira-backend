@@ -8,10 +8,11 @@ import {
   Put,
   Res,
   UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { CreateProdutoDto, CreateVariacaoDto } from '../dto/create-produto.dto';
 import { UpdateVariacaoDto } from '../dto/update-produto.dto';
@@ -23,11 +24,15 @@ import { ProdutosService } from '../services/produtos.service';
 export class ProdutosController {
   constructor(private readonly produtosService: ProdutosService) {}
 
+  // =========================================================
+  // 1️⃣ ROTAS ESPECÍFICAS / ESTÁTICAS
+  // (Precisam ser lidas antes para não caírem nos curingas)
+  // =========================================================
+
   @Get('produtos')
   async listaProdutos(@Res() res: Response): Promise<any> {
     try {
       const result = await this.produtosService.listaProdutos();
-
       return res.status(200).send(result);
     } catch (err) {
       console.log(err);
@@ -45,7 +50,6 @@ export class ProdutosController {
     try {
       console.log(dto);
       const result = await this.produtosService.createProduto(dto, file);
-
       return res.status(201).send(result);
     } catch (err) {
       console.log(err);
@@ -53,6 +57,53 @@ export class ProdutosController {
     }
   }
 
+  // 👇 Movido para cima: Escapa do @Put('produtos/:cd_produto')
+  @Put('produtos/variacao')
+  async updateVariacao(
+    @Res() res: Response,
+    @Body() dto: UpdateVariacaoDto,
+  ): Promise<any> {
+    try {
+      const result = await this.produtosService.editaVariacao(dto);
+      return res.status(200).send(result);
+    } catch (err) {
+      console.log(err);
+      return res.status(409).send(err);
+    }
+  }
+
+  // 👇 Movido para cima: Escapa do @Delete('produtos/:cd_produto')
+  @Delete('produtos/variacao/:cd_variacao')
+  async deleteVariacao(
+    @Res() res: Response,
+    @Param('cd_variacao') cd_variacao: number,
+  ): Promise<any> {
+    try {
+      const result = await this.produtosService.deletaVariacao(cd_variacao);
+      return res.status(200).send(result);
+    } catch (err) {
+      console.log(err);
+      return res.status(409).send(err);
+    }
+  }
+
+  // 👇 Movido para cima: Escapa do @Delete('produtos/:cd_produto')
+  @Delete('produtos/imagens/:cd_imagem')
+  async deleteImagem(
+    @Res() res: Response,
+    @Param('cd_imagem') cd_imagem: number,
+  ): Promise<any> {
+    try {
+      const result = await this.produtosService.deleteImagemProduto(cd_imagem);
+      return res.status(200).send(result);
+    } catch (err) {
+      console.log(err);
+      return res.status(409).send(err);
+    }
+  }
+
+  // Obs: O prefixo aqui é 'produto' (singular), então não dava conflito,
+  // mas agrupar aqui mantém a organização limpa.
   @Post('produto/:produtoId/variacao')
   async createVariacao(
     @Res() res: Response,
@@ -71,14 +122,19 @@ export class ProdutosController {
     }
   }
 
-  @Put('produtos/variacao')
-  async updateVariacao(
+  // =========================================================
+  // 2️⃣ ROTAS DINÂMICAS / CURINGAS
+  // (Ficam no final para capturar apenas o que sobrar)
+  // =========================================================
+
+  @Put('produtos/:cd_produto')
+  async updateProduto(
     @Res() res: Response,
-    @Body() dto: UpdateVariacaoDto,
+    @Param('cd_produto') cd_produto: number,
+    @Body() dto: any,
   ): Promise<any> {
     try {
-      const result = await this.produtosService.editaVariacao(dto);
-
+      const result = await this.produtosService.updateProduto(cd_produto, dto);
       return res.status(200).send(result);
     } catch (err) {
       console.log(err);
@@ -93,7 +149,6 @@ export class ProdutosController {
   ): Promise<any> {
     try {
       const result = await this.produtosService.deletaProduto(cd_produto);
-
       return res.status(200).send(result);
     } catch (err) {
       console.log(err);
@@ -101,14 +156,38 @@ export class ProdutosController {
     }
   }
 
-  @Delete('produtos/variacao/:cd_variacao')
-  async deleteVariacao(
+  @Post('produtos/:cd_produto/imagens')
+  @UseInterceptors(FilesInterceptor('files'))
+  async uploadImagens(
     @Res() res: Response,
-    @Param('cd_variacao') cd_variacao: number,
+    @Param('cd_produto') cd_produto: number,
+    @Body('ds_slug') ds_slug: string,
+    @UploadedFiles() files: Express.Multer.File[],
   ): Promise<any> {
     try {
-      const result = await this.produtosService.deletaVariacao(cd_variacao);
+      const result = await this.produtosService.uploadImagensProduto(
+        cd_produto,
+        files,
+        ds_slug,
+      );
+      return res.status(201).send(result);
+    } catch (err) {
+      console.log(err);
+      return res.status(409).send(err);
+    }
+  }
 
+  @Put('produtos/:cd_produto/imagens/:cd_imagem/principal')
+  async setImagemPrincipal(
+    @Res() res: Response,
+    @Param('cd_produto') cd_produto: number,
+    @Param('cd_imagem') cd_imagem: number,
+  ): Promise<any> {
+    try {
+      const result = await this.produtosService.setImagemPrincipal(
+        cd_imagem,
+        cd_produto,
+      );
       return res.status(200).send(result);
     } catch (err) {
       console.log(err);

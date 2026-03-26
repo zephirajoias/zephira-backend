@@ -61,6 +61,22 @@ export class AdminController {
     }
   }
 
+  @Post('forgot-password')
+  async forgotPassword(
+    @Body('email') email: string,
+    @Res() res: Response,
+  ): Promise<any> {
+    try {
+      const response = await this.adminService.forgotPassword(email);
+      return res.status(200).json(response);
+    } catch (err) {
+      console.log(err);
+      return res
+        .status(500)
+        .json({ message: 'Erro ao processar a solicitação.' });
+    }
+  }
+
   @UseGuards(AdminJwtGuard) // Protege a rota
   @Put('me/password')
   async changePassword(@Body() updatePasswordDto: UpdatePasswordDto) {
