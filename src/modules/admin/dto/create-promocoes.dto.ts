@@ -1,6 +1,13 @@
 import { TYPE_PROMOCAO } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsDate, IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
+import {
+  IsDate,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class CreatePromocoesDto {
   @IsString()
@@ -17,12 +24,14 @@ export class CreatePromocoesDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  VL_DESCONTO: number;
+  @IsOptional()
+  VL_DESCONTO?: number;
 
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  VL_PEDIDO_MINIMO: number;
+  @IsOptional()
+  VL_PEDIDO_MINIMO?: number;
 
   @Type(() => Date)
   @IsDate()
@@ -31,21 +40,23 @@ export class CreatePromocoesDto {
 
   @Type(() => Date)
   @IsDate()
-  @IsNotEmpty()
-  DT_FIM: Date;
+  @IsOptional()
+  DT_FIM?: Date;
 
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  QT_USOS_ATUAL: number;
+  @IsOptional()
+  QT_USOS_ATUAL?: number;
 
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  QT_LIMITE_USO: number;
+  @IsOptional()
+  QT_LIMITE_USO?: number;
 
   @Type(() => Number)
   @IsNumber()
-  @IsNotEmpty()
-  SN_ATIVO: number;
+  @IsOptional()
+  SN_ATIVO?: number;
 }

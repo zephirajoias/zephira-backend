@@ -104,7 +104,7 @@ export class ProdutosService {
 
     // 7️⃣ TRANSAÇÃO (produto + variações)
     try {
-      const produto = await this.prismaService.$transaction(async (tx) => {
+      const produto = await this.prismaService.$transaction(async (tx: any) => {
         // 7.1️⃣ Cria o produto
         const produtoCriado = await tx.pRODUTOS.create({
           data: {
@@ -184,20 +184,36 @@ export class ProdutosService {
     return produto;
   }
 
-  async listaProdutos(): Promise<any[]> {
-    const produtos = await this.prismaService.pRODUTOS.findMany({
-      select: {
-        CD_PRODUTO: true,
-        NM_PRODUTO: true,
-        IMAGENS_PRODUTO: {
-          select: {
-            DS_URL: true,
+  async listaProdutos(page = 1, limit = 20): Promise<any> {
+    const skip = (page - 1) * limit;
+
+    const [produtos, total] = await this.prismaService.$transaction([
+      this.prismaService.pRODUTOS.findMany({
+        skip,
+        take: limit,
+        orderBy: { CD_PRODUTO: 'desc' },
+        select: {
+          CD_PRODUTO: true,
+          NM_PRODUTO: true,
+          IMAGENS_PRODUTO: {
+            select: {
+              DS_URL: true,
+            },
           },
         },
-      },
-    });
+      }),
+      this.prismaService.pRODUTOS.count(),
+    ]);
 
-    return produtos;
+    return {
+      data: produtos,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async createVariacao(
@@ -278,7 +294,7 @@ export class ProdutosService {
     const precoFormatado = dto.VL_PRECO ? Number(dto.VL_PRECO) : undefined;
     const categoriaId = dto.CD_CATEGORIA ? Number(dto.CD_CATEGORIA) : undefined;
 
-    return await this.prismaService.$transaction(async (tx) => {
+    return await this.prismaService.$transaction(async (tx: any) => {
       const produto = await tx.pRODUTOS.update({
         where: { CD_PRODUTO: idProduto }, // Usa a variável limpa
         data: {
@@ -381,7 +397,7 @@ export class ProdutosService {
     cd_imagem: number,
     cd_produto: number,
   ): Promise<any> {
-    return await this.prismaService.$transaction(async (tx) => {
+    return await this.prismaService.$transaction(async (tx: any) => {
       // Remove principal de todas as imagens do produto
       await tx.iMAGENS_PRODUTO.updateMany({
         where: { CD_PRODUTO: Number(cd_produto) },

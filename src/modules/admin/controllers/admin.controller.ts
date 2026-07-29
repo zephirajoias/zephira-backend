@@ -6,13 +6,20 @@ import {
   Param,
   Post,
   Put,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { CreateAdminDto } from '../dto/create-admin.dto';
-import { UpdatePasswordDto } from '../dto/update-admin.dto';
+import {
+  UpdateAdminDto,
+  UpdateMeuPerfilDto,
+  UpdatePasswordDto,
+} from '../dto/update-admin.dto';
 import { AdminJwtGuard } from '../guards/admin-jwt.guard';
+import { GoogleAdminOAuthGuard } from '../guards/google-admin-oauth.guard';
 import { AdminService } from '../services/admin.service';
 
 @Controller('admin')
@@ -47,6 +54,30 @@ export class AdminController {
     }
   }
 
+  @Get('auth/google')
+  @UseGuards(GoogleAdminOAuthGuard)
+  async googleAuth() {
+    // Passport redireciona automaticamente para o Google
+  }
+
+  @Get('auth/google/callback')
+  @UseGuards(GoogleAdminOAuthGuard)
+  async googleAuthCallback(@Req() req: any, @Res() res: Response) {
+    const tokenData = this.adminService.generateAdminToken(req.user);
+
+    res.cookie('zephira-token', tokenData.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 8 * 60 * 60 * 1000,
+    });
+
+    return res.redirect(
+      `${process.env.FRONTEND_URL ?? 'https://admin.zephirajoias.com.br/'}dashboard`,
+    );
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   async loginAdmin(
     @Body() loginAdminDto: CreateAdminDto,
@@ -61,6 +92,7 @@ export class AdminController {
     }
   }
 
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('forgot-password')
   async forgotPassword(
     @Body('email') email: string,
@@ -82,6 +114,25 @@ export class AdminController {
   async changePassword(@Body() updatePasswordDto: UpdatePasswordDto) {
     console.log(updatePasswordDto);
     return this.adminService.updatePassword(updatePasswordDto);
+  }
+
+  @UseGuards(AdminJwtGuard)
+  @Put('me/profile')
+  async updateMeuPerfil(
+    @Req() req: any,
+    @Body() dto: UpdateMeuPerfilDto,
+    @Res() res: Response,
+  ): Promise<any> {
+    try {
+      const result = await this.adminService.updateMeuPerfil(
+        req.user.userId,
+        dto,
+      );
+      return res.status(200).send(result);
+    } catch (err) {
+      console.log(err);
+      return res.status(409).send(err);
+    }
   }
 
   @UseGuards(AdminJwtGuard)
@@ -168,6 +219,7 @@ export class AdminController {
     }
   }
 
+  @UseGuards(AdminJwtGuard)
   @Delete(':id')
   async deleteAdmin(
     @Param('id') id: string,
@@ -182,13 +234,22 @@ export class AdminController {
     }
   }
 
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateAdminDto: UpdateAdminDto) {
-  //   return this.adminService.update(+id, updateAdminDto);
-  // }
-
-  // @Delete(':id')
-  // remove(@Param('id') id: string) {
-  //   return this.adminService.remove(+id);
-  // }
+  @UseGuards(AdminJwtGuard)
+  @Put(':id')
+  async updateAdmin(
+    @Param('id') id: string,
+    @Body() updateAdminDto: UpdateAdminDto,
+    @Res() res: Response,
+  ): Promise<any> {
+    try {
+      const result = await this.adminService.updateAdmin(
+        Number(id),
+        updateAdminDto,
+      );
+      return res.status(200).send(result);
+    } catch (err) {
+      console.log(err);
+      return res.status(409).send(err);
+    }
+  }
 }

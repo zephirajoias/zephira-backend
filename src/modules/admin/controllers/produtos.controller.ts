@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   Res,
   UploadedFile,
   UploadedFiles,
@@ -30,9 +31,16 @@ export class ProdutosController {
   // =========================================================
 
   @Get('produtos')
-  async listaProdutos(@Res() res: Response): Promise<any> {
+  async listaProdutos(
+    @Res() res: Response,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ): Promise<any> {
     try {
-      const result = await this.produtosService.listaProdutos();
+      const result = await this.produtosService.listaProdutos(
+        Number(page) || 1,
+        Number(limit) || 20,
+      );
       return res.status(200).send(result);
     } catch (err) {
       console.log(err);

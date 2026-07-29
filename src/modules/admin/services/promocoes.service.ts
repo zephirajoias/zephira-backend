@@ -25,9 +25,15 @@ export class PromocoesService {
     return promocao;
   }
 
-  async listaPromocoes(): Promise<any> {
-    const promocoes = await this.prismaService.pROMOCOES.findMany();
-    return promocoes;
+  async listaPromocoes(): Promise<any[]> {
+    const promocoes = await this.prismaService.pROMOCOES.findMany({
+      orderBy: { TS_CRIACAO: 'desc' },
+    });
+
+    return promocoes.map((p) => ({
+      ...p,
+      QT_USO_ATUAL: p.QT_USOS_ATUAL,
+    }));
   }
 
   async listaTiposPromocoes(): Promise<any> {

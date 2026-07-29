@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common'; // Adicionei ValidationPipe se for usar
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
@@ -7,15 +7,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
 
-  /*
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      forbidNonWhitelisted: true,
     }),
   );
-  */
 
   app.use(cookieParser());
 

@@ -1,6 +1,6 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 
-export class CreateAdminDto {
+export class RegisterUserDto {
   @IsString()
   @IsNotEmpty()
   NM_USUARIO: string;
@@ -10,7 +10,7 @@ export class CreateAdminDto {
   DS_EMAIL: string;
 
   @IsString()
-  @IsNotEmpty()
+  @MinLength(6, { message: 'A senha deve ter no mínimo 6 caracteres' })
   DS_SENHA: string;
 
   @IsOptional()
@@ -18,7 +18,7 @@ export class CreateAdminDto {
   NR_TELEFONE?: string;
 }
 
-export class loginAdminDto {
+export class LoginUserDto {
   @IsString()
   @IsNotEmpty()
   DS_EMAIL: string;

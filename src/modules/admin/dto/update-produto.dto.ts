@@ -1,4 +1,5 @@
 import { PartialType } from '@nestjs/mapped-types';
+import { Type } from 'class-transformer';
 import { IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
 import { CreateProdutoDto, CreateVariacaoDto } from './create-produto.dto';
 
@@ -17,6 +18,7 @@ export class UpdateVariacaoDto extends PartialType(CreateVariacaoDto) {
   @IsNotEmpty()
   DS_TAMANHO: string;
 
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   QT_ESTOQUE: number;

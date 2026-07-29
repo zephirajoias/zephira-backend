@@ -10,7 +10,11 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'src/prisma/services/prisma.service';
 import { CreateAdminDto } from '../dto/create-admin.dto';
-import { UpdatePasswordDto } from '../dto/update-admin.dto';
+import {
+  UpdateAdminDto,
+  UpdateMeuPerfilDto,
+  UpdatePasswordDto,
+} from '../dto/update-admin.dto';
 
 @Injectable()
 export class AdminService {
@@ -50,8 +54,54 @@ export class AdminService {
         DS_SENHA_HASH: hashSenha,
         TP_PERFIL: ADMIN,
         NR_TELEFONE: createAdminDto.NR_TELEFONE,
-        TS_CRIACAO: createAdminDto.TS_CRIACAO,
-        TS_ATUALIZACAO: createAdminDto.TS_ATUALIZACAO,
+        TS_CRIACAO: new Date(),
+        TS_ATUALIZACAO: new Date(),
+      },
+    });
+  }
+
+  async updateAdmin(id: number, dto: UpdateAdminDto): Promise<USUARIO> {
+    const admin = await this.prismaService.uSUARIO.findUnique({
+      where: { CD_USUARIO: id },
+    });
+
+    if (!admin || admin.TP_PERFIL !== 'ADMIN') {
+      throw new NotFoundException('Administrador não encontrado.');
+    }
+
+    const senhaHash = dto.DS_SENHA
+      ? await bcrypt.hash(dto.DS_SENHA, 10)
+      : undefined;
+
+    return this.prismaService.uSUARIO.update({
+      where: { CD_USUARIO: id },
+      data: {
+        NM_USUARIO: dto.NM_USUARIO,
+        NR_TELEFONE: dto.NR_TELEFONE,
+        TP_PERFIL: dto.TP_PERFIL,
+        DS_SENHA_HASH: senhaHash,
+        TS_ATUALIZACAO: new Date(),
+      },
+    });
+  }
+
+  async updateMeuPerfil(id: number, dto: UpdateMeuPerfilDto): Promise<USUARIO> {
+    if (dto.DS_EMAIL) {
+      const emailEmUso = await this.prismaService.uSUARIO.findUnique({
+        where: { DS_EMAIL: dto.DS_EMAIL },
+      });
+
+      if (emailEmUso && emailEmUso.CD_USUARIO !== id) {
+        throw new ConflictException('Este e-mail já está em uso.');
+      }
+    }
+
+    return this.prismaService.uSUARIO.update({
+      where: { CD_USUARIO: id },
+      data: {
+        NM_USUARIO: dto.NM_USUARIO,
+        DS_EMAIL: dto.DS_EMAIL,
+        TS_ATUALIZACAO: new Date(),
       },
     });
   }
@@ -134,6 +184,47 @@ export class AdminService {
     return {
       access_token,
       expires_at: decoded.exp, // Retorna o timestamp (ex: 1715832000)
+      user: {
+        name: user.NM_USUARIO,
+        role: user.TP_PERFIL,
+      },
+    };
+  }
+
+  async findAdminByEmail(email: string): Promise<USUARIO> {
+    const user = await this.prismaService.uSUARIO.findUnique({
+      where: { DS_EMAIL: email },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException(
+        'Esta conta Google não tem acesso administrativo.',
+      );
+    }
+
+    if (user.TP_PERFIL !== 'ADMIN') {
+      throw new UnauthorizedException(
+        'Esta conta não tem privilégios de administrador.',
+      );
+    }
+
+    return user;
+  }
+
+  generateAdminToken(user: USUARIO) {
+    const payload = {
+      sub: user.CD_USUARIO,
+      email: user.DS_EMAIL,
+      roles: user.TP_PERFIL,
+      name: user.NM_USUARIO,
+    };
+
+    const access_token = this.jwtService.sign(payload);
+    const decoded: any = this.jwtService.decode(access_token);
+
+    return {
+      access_token,
+      expires_at: decoded.exp,
       user: {
         name: user.NM_USUARIO,
         role: user.TP_PERFIL,
@@ -479,40 +570,39 @@ FROM
   async pedidosRecentes(): Promise<any[]> {
     const pedidos = await this.prismaService.$queryRaw<
       Array<{
-        ds_id_visual: string;
-        nm_produto_exibicao: string;
-        nm_usuario: string;
-        ds_data_formatada: string;
-        vl_total: number;
-        tp_status: string;
-        ds_cor_status_css: string;
+        id: string;
+        produto: string;
+        usuario: string;
+        data: string;
+        valor: number;
+        status: string;
+        cor: string;
       }>
-    >`SELECT 
-    '#ORD-' || p."CD_PEDIDO" AS ds_id_visual,
+    >`SELECT
+    '#ORD-' || p."CD_PEDIDO" AS id,
     COALESCE(
         (SELECT ip."NM_PRODUTO_SNAPSHOT"
-         FROM "Zephira"."ITENS_PEDIDO" ip 
-         WHERE ip."CD_PEDIDO" = p."CD_PEDIDO" 
-         LIMIT 1), 
+         FROM "Zephira"."ITENS_PEDIDO" ip
+         WHERE ip."CD_PEDIDO" = p."CD_PEDIDO"
+         LIMIT 1),
          'Mix de Produtos'
-    ) AS nm_produto_exibicao,
-    u."NM_USUARIO",
-    TO_CHAR(p."TS_CRIACAO", 'DD Mon') AS ds_data_formatada,
-    p."VL_TOTAL",
-    p."TP_STATUS",
-    CASE 
-        WHEN p."TP_STATUS" = 'PENDENTE' THEN 'warning'
-        WHEN p."TP_STATUS" = 'ENVIADO' THEN 'info'
-        WHEN p."TP_STATUS" = 'ENTREGUE' THEN 'success'
-        WHEN p."TP_STATUS" = 'CANCELADO' THEN 'danger'
-        ELSE 'secondary'
-    END as ds_cor_status_css
-FROM 
+    ) AS produto,
+    u."NM_USUARIO" AS usuario,
+    TO_CHAR(p."TS_CRIACAO", 'DD Mon') AS data,
+    p."VL_TOTAL" AS valor,
+    p."TP_STATUS" AS status,
+    CASE
+        WHEN p."TP_STATUS" = 'PENDENTE' THEN 'yellow'
+        WHEN p."TP_STATUS" = 'ENVIADO' THEN 'blue'
+        WHEN p."TP_STATUS" = 'ENTREGUE' THEN 'green'
+        ELSE 'yellow'
+    END as cor
+FROM
     "Zephira"."PEDIDOS" p,
 	"Zephira"."USUARIO" u
 WHERE
 	U."CD_USUARIO" = p."CD_USUARIO"
-ORDER BY 
+ORDER BY
     p."TS_CRIACAO" DESC
 LIMIT 5;`;
 
@@ -600,21 +690,21 @@ ORDER by
         ds_cor_status_css: string;
       }>
     >`SELECT
-	P."CD_PEDIDO",
+	P."CD_PEDIDO" AS cd_pedido,
 	TO_CHAR(p."TS_CRIACAO", 'DD Mon') AS ds_data_formatada,
-	U."NM_USUARIO",
-	U."DS_EMAIL",
+	U."NM_USUARIO" AS nm_usuario,
+	U."DS_EMAIL" AS ds_email,
 	COALESCE(
         (SELECT ip."NM_PRODUTO_SNAPSHOT"
-         FROM "Zephira"."ITENS_PEDIDO" ip 
-         WHERE ip."CD_PEDIDO" = P."CD_PEDIDO" 
-         LIMIT 1), 
+         FROM "Zephira"."ITENS_PEDIDO" ip
+         WHERE ip."CD_PEDIDO" = P."CD_PEDIDO"
+         LIMIT 1),
          'Mix de Produtos'
     	) AS nm_produto_exibicao,
-	P."VL_TOTAL",
-	P."TP_METODO_PAGAMENTO",
-    P."TP_STATUS",
-	CASE 
+	P."VL_TOTAL" AS vl_total,
+	P."TP_METODO_PAGAMENTO" AS tp_metodo_pagamento,
+    P."TP_STATUS" AS tp_status,
+	CASE
         WHEN P."TP_STATUS" = 'PENDENTE' THEN 'warning'
         WHEN P."TP_STATUS" = 'ENVIADO' THEN 'info'
         WHEN P."TP_STATUS" = 'ENTREGUE' THEN 'success'
@@ -625,7 +715,9 @@ FROM
 	"Zephira"."PEDIDOS" P,
 	"Zephira"."USUARIO" U
 WHERE
-	P."CD_USUARIO" = U."CD_USUARIO";`;
+	P."CD_USUARIO" = U."CD_USUARIO"
+ORDER BY
+	P."TS_CRIACAO" DESC;`;
 
     return pedidos;
   }

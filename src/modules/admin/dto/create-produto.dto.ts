@@ -1,28 +1,31 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsIn,
   IsNotEmpty,
   IsNumber,
+  IsOptional,
   IsString,
   Min,
   ValidateNested,
 } from 'class-validator';
 
-// 1. Crie um DTO específico para a Variação (Filho)
+// 1. DTO da variação usada na rota separada POST /produto/:produtoId/variacao
+// (CD_PRODUTO vem da URL e CD_SKU é gerado no service, então não são obrigatórios aqui)
 export class CreateVariacaoDto {
-  @IsNumber()
-  @IsNotEmpty()
-  CD_PRODUTO: string;
-
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  CD_SKU: string;
+  CD_PRODUTO?: string;
+
+  @IsOptional()
+  @IsString()
+  CD_SKU?: string;
 
   @IsString()
   @IsNotEmpty()
   DS_TAMANHO: string;
 
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   QT_ESTOQUE: number;
@@ -30,6 +33,19 @@ export class CreateVariacaoDto {
   @IsString()
   @IsNotEmpty()
   DS_SLUG: string;
+}
+
+// 1.1. Variação enviada dentro do array "variacoes" na criação do produto
+// (o SKU é gerado a partir do slug do produto pai, então só precisa desses campos)
+export class CreateProdutoVariacaoDto {
+  @IsString()
+  @IsNotEmpty()
+  DS_TAMANHO: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  QT_ESTOQUE: number;
 }
 
 // 2. O DTO Principal (Pai)
@@ -56,10 +72,20 @@ export class CreateProdutoDto {
   @Min(0)
   VL_PRECO: number;
 
+  // Chega como string JSON (multipart/form-data), então precisa ser parseado
+  // antes das validações de array/nested rodarem.
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  })
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => CreateVariacaoDto)
-  variacoes: CreateVariacaoDto[];
+  @Type(() => CreateProdutoVariacaoDto)
+  variacoes: CreateProdutoVariacaoDto[];
 
   @IsString()
   @IsIn(['S', 'N'])

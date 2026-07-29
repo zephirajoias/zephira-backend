@@ -1,22 +1,23 @@
 import { Type } from 'class-transformer';
-import { IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class UpdatePromocoesDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  NM_PROMOCAO: string;
+  NM_PROMOCAO?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  DS_CODIGO: string;
+  DS_CODIGO?: string;
 
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  VL_DESCONTO: number;
+  @IsOptional()
+  VL_DESCONTO?: number;
 
   @Type(() => Number)
   @IsNumber()
-  @IsNotEmpty()
-  SN_ATIVO: number;
+  @IsOptional()
+  SN_ATIVO?: number;
 }

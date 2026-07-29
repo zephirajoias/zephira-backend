@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CategoriaCreateDto {
   @IsString()
@@ -9,14 +10,17 @@ export class CategoriaCreateDto {
   @IsNotEmpty()
   DS_SLUG: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  DS_URL_IMAGEM: string;
+  DS_URL_IMAGEM?: string;
 
+  @Type(() => Number)
   @IsNumber()
-  @IsNotEmpty()
-  SN_ATIVO: number;
+  @IsOptional()
+  SN_ATIVO?: number;
 
+  @Type(() => Number)
   @IsNumber()
-  CD_CATEGORIA_PAI: number;
+  @IsOptional()
+  CD_CATEGORIA_PAI?: number;
 }

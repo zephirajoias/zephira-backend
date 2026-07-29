@@ -1,15 +1,39 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { IsEmpty, IsString, MinLength } from 'class-validator';
-import { CreateAdminDto } from './create-admin.dto';
+import { PERFIL_USUARIO } from '@prisma/client';
+import {
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
-export class UpdateAdminDto extends PartialType(CreateAdminDto) {
+export class UpdateAdminDto {
+  @IsOptional()
   @IsString()
-  @IsEmpty()
-  NM_CATEGORIA: string;
+  NM_USUARIO?: string;
 
+  @IsOptional()
   @IsString()
-  @IsEmpty()
-  DS_SLUG: string;
+  NR_TELEFONE?: string;
+
+  @IsOptional()
+  @IsEnum(PERFIL_USUARIO)
+  TP_PERFIL?: PERFIL_USUARIO;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(6, { message: 'A senha deve ter no mínimo 6 caracteres' })
+  DS_SENHA?: string;
+}
+
+export class UpdateMeuPerfilDto {
+  @IsOptional()
+  @IsString()
+  NM_USUARIO?: string;
+
+  @IsOptional()
+  @IsEmail()
+  DS_EMAIL?: string;
 }
 
 export class UpdatePasswordDto {
