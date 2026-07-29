@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
-import { CreateAdminDto } from '../dto/create-admin.dto';
+import { CreateAdminDto, loginAdminDto } from '../dto/create-admin.dto';
 import {
   UpdateAdminDto,
   UpdateMeuPerfilDto,
@@ -80,11 +80,11 @@ export class AdminController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   async loginAdmin(
-    @Body() loginAdminDto: CreateAdminDto,
+    @Body() dto: loginAdminDto,
     @Res() res: Response,
   ): Promise<any> {
     try {
-      const response = await this.adminService.authAdmin(loginAdminDto);
+      const response = await this.adminService.authAdmin(dto);
       return res.status(200).json(response);
     } catch (err) {
       console.log(err);

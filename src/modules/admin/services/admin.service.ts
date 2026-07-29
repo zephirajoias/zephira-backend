@@ -9,7 +9,7 @@ import { USUARIO } from '@prisma/client';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'src/prisma/services/prisma.service';
-import { CreateAdminDto } from '../dto/create-admin.dto';
+import { CreateAdminDto, loginAdminDto } from '../dto/create-admin.dto';
 import {
   UpdateAdminDto,
   UpdateMeuPerfilDto,
@@ -113,7 +113,7 @@ export class AdminService {
     });
   }
 
-  async authAdmin(loginAdminDto: CreateAdminDto) {
+  async authAdmin(loginAdminDto: loginAdminDto) {
     // 1. Busca o usuário no banco local (Prisma)
     const user = await this.prismaService.uSUARIO.findUnique({
       where: { DS_EMAIL: loginAdminDto.DS_EMAIL },
