@@ -2,19 +2,33 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/services/prisma.service';
 import { CheckoutDto } from '../dto/checkout.dto';
+import { PagamentoService } from './pagamento.service';
+import { SuperFreteService } from './superfrete.service';
 
 @Injectable()
 export class PedidosService {
-  constructor(private readonly prismaService: PrismaService) {}
+  private readonly logger = new Logger(PedidosService.name);
+
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly pagamentoService: PagamentoService,
+    private readonly superFreteService: SuperFreteService,
+  ) {}
 
   async checkout(cd_usuario: number, dto: CheckoutDto): Promise<any> {
-    const endereco = await this.prismaService.eNDERECO.findUnique({
-      where: { CD_ENDERECO: dto.CD_ENDERECO },
-    });
+    const [endereco, usuario] = await Promise.all([
+      this.prismaService.eNDERECO.findUnique({
+        where: { CD_ENDERECO: dto.CD_ENDERECO },
+      }),
+      this.prismaService.uSUARIO.findUnique({
+        where: { CD_USUARIO: cd_usuario },
+      }),
+    ]);
 
     if (!endereco || endereco.CD_USUARIO !== cd_usuario) {
       throw new ForbiddenException(
@@ -68,6 +82,23 @@ export class PedidosService {
     let desconto = 0;
     let promocao: { CD_PROMOCAO: number } | null = null;
     let frete = dto.VL_FRETE ?? 0;
+
+    if (dto.CD_SERVICO_FRETE) {
+      const opcoesFrete = await this.superFreteService.calcularFrete(
+        endereco.NR_CEP,
+      );
+      const opcaoEscolhida = opcoesFrete.find(
+        (o) => o.idServico === dto.CD_SERVICO_FRETE,
+      );
+
+      if (!opcaoEscolhida) {
+        throw new BadRequestException(
+          'Opção de frete inválida ou expirada, recalcule o frete.',
+        );
+      }
+
+      frete = opcaoEscolhida.preco;
+    }
 
     if (dto.DS_CODIGO_PROMOCIONAL) {
       const promo = await this.prismaService.pROMOCOES.findUnique({
@@ -177,7 +208,54 @@ export class PedidosService {
       return pedidoCriado;
     });
 
-    return pedido;
+    let checkoutUrl: string | null = null;
+    try {
+      const preferencia = await this.pagamentoService.criarPreferencia(pedido);
+      checkoutUrl = preferencia?.checkoutUrl ?? null;
+    } catch (err) {
+      this.logger.error(
+        `Falha ao criar preferência de pagamento para o pedido #${pedido.CD_PEDIDO}`,
+        err as Error,
+      );
+    }
+
+    if (dto.CD_SERVICO_FRETE && usuario) {
+      try {
+        const envio = await this.superFreteService.reservarEnvio(
+          dto.CD_SERVICO_FRETE,
+          {
+            nome: usuario.NM_USUARIO,
+            cep: endereco.NR_CEP,
+            endereco: endereco.NM_LOGRADOURO,
+            numero: endereco.NR_NUMERO,
+            bairro: endereco.NM_BAIRRO,
+            cidade: endereco.NM_CIDADE,
+            uf: endereco.DS_UF,
+            documento: endereco.DS_DOCUMENTO,
+          },
+          pedido.ITENS_PEDIDO.map((item: any) => ({
+            nome: item.NM_PRODUTO_SNAPSHOT,
+            quantidade: item.QT_ITEM,
+            valorUnitario: Number(item.VL_UNITARIO),
+          })),
+          Number(pedido.VL_TOTAL),
+        );
+
+        if (envio) {
+          await this.prismaService.pEDIDOS.update({
+            where: { CD_PEDIDO: pedido.CD_PEDIDO },
+            data: { CD_RASTREIO: envio.cartId },
+          });
+        }
+      } catch (err) {
+        this.logger.error(
+          `Falha ao reservar envio no SuperFrete para o pedido #${pedido.CD_PEDIDO}`,
+          err as Error,
+        );
+      }
+    }
+
+    return { ...pedido, checkoutUrl };
   }
 
   async meusPedidos(

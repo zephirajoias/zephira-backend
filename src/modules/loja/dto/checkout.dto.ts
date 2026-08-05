@@ -47,4 +47,9 @@ export class CheckoutDto {
   @IsNumber()
   @Min(0)
   VL_FRETE?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  CD_SERVICO_FRETE?: number;
 }

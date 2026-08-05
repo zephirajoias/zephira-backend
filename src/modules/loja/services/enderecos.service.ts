@@ -28,6 +28,7 @@ export class EnderecosService {
         NM_BAIRRO: dto.NM_BAIRRO,
         NM_CIDADE: dto.NM_CIDADE,
         DS_UF: dto.DS_UF.toUpperCase(),
+        DS_DOCUMENTO: dto.DS_DOCUMENTO?.replace(/\D/g, ''),
       },
     });
   }
@@ -49,6 +50,7 @@ export class EnderecosService {
         NM_BAIRRO: dto.NM_BAIRRO,
         NM_CIDADE: dto.NM_CIDADE,
         DS_UF: dto.DS_UF?.toUpperCase(),
+        DS_DOCUMENTO: dto.DS_DOCUMENTO?.replace(/\D/g, ''),
       },
     });
   }

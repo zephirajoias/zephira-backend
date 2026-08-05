@@ -28,4 +28,8 @@ export class CreateEnderecoDto {
   @IsString()
   @Length(2, 2)
   DS_UF: string;
+
+  @IsOptional()
+  @IsString()
+  DS_DOCUMENTO?: string;
 }

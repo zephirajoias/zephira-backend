@@ -35,6 +35,7 @@ model ENDERECO {
   NM_BAIRRO      String    @db.VarChar(255)
   NM_CIDADE      String    @db.VarChar(255)
   DS_UF          String    @db.Char(2)
+  DS_DOCUMENTO   String?   @db.VarChar(20)
   TS_CRIACAO     DateTime? @default(now()) @db.Timestamptz(6)
   USUARIO        USUARIO   @relation(fields: [CD_USUARIO], references: [CD_USUARIO], onDelete: NoAction, map: "fk_cd_usuario")
 
@@ -207,6 +208,22 @@ model CONFIGURACOES_LOJA {
   DS_FUSO_HORARIO  String?   @default("UTC-3") @db.VarChar(50)
   DS_URL_LOGO      String?
   DS_URL_FAVICON   String?
+
+  // Remetente usado no cálculo/compra de frete (SuperFrete)
+  NM_REMETENTE          String? @db.VarChar(100)
+  NR_CEP_REMETENTE      String? @db.VarChar(20)
+  DS_ENDERECO_REMETENTE String? @db.VarChar(255)
+  NR_NUMERO_REMETENTE   String? @db.VarChar(20)
+  NM_BAIRRO_REMETENTE   String? @db.VarChar(255)
+  NM_CIDADE_REMETENTE   String? @db.VarChar(255)
+  DS_UF_REMETENTE       String? @db.Char(2)
+
+  // Pacote padrão usado no cálculo de frete (até termos peso/dimensão por produto)
+  NR_PACOTE_ALTURA      Decimal? @db.Decimal(6, 2)
+  NR_PACOTE_LARGURA     Decimal? @db.Decimal(6, 2)
+  NR_PACOTE_COMPRIMENTO Decimal? @db.Decimal(6, 2)
+  NR_PACOTE_PESO        Decimal? @db.Decimal(6, 3)
+
   TS_ATUALIZACAO   DateTime? @default(now()) @db.Timestamptz(6)
 
   @@schema("Zephira")

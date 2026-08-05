@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import * as fs from 'fs';
 import * as path from 'path';
+import { LojaModule } from '../loja/loja.module';
 import { AdminController } from './controllers/admin.controller';
 import { CategoriasController } from './controllers/categorias.controller';
 import { ConfiguracoesController } from './controllers/configuracoes.controller';
@@ -25,6 +26,7 @@ const publicKeyPath = path.join(process.cwd(), 'keys/public.pem');
 
 @Module({
   imports: [
+    LojaModule,
     JwtModule.registerAsync({
       global: true,
       inject: [ConfigService],

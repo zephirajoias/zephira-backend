@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Post,
   Put,
   Query,
   Res,
@@ -59,6 +60,20 @@ export class PedidosController {
   ): Promise<any> {
     try {
       const result = await this.pedidosService.atualizaStatus(id, dto);
+      return res.status(200).send(result);
+    } catch (err) {
+      console.log(err);
+      return res.status(409).send(err);
+    }
+  }
+
+  @Post('pedidos/:id/comprar-etiqueta')
+  async comprarEtiqueta(
+    @Res() res: Response,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<any> {
+    try {
+      const result = await this.pedidosService.comprarEtiqueta(id);
       return res.status(200).send(result);
     } catch (err) {
       console.log(err);
