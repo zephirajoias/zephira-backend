@@ -8,12 +8,11 @@ import {
   Put,
   Query,
   Res,
-  UploadedFile,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { CreateProdutoDto, CreateVariacaoDto } from '../dto/create-produto.dto';
 import { UpdateVariacaoDto } from '../dto/update-produto.dto';
@@ -49,15 +48,14 @@ export class ProdutosController {
   }
 
   @Post('produtos')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FilesInterceptor('files'))
   async createProduto(
     @Res() res: Response,
     @Body() dto: CreateProdutoDto,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFiles() files: Express.Multer.File[],
   ): Promise<any> {
     try {
-      console.log(dto);
-      const result = await this.produtosService.createProduto(dto, file);
+      const result = await this.produtosService.createProduto(dto, files);
       return res.status(201).send(result);
     } catch (err) {
       console.log(err);

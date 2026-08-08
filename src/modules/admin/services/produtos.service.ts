@@ -50,41 +50,55 @@ export class ProdutosService {
 
   async createProduto(
     dto: CreateProdutoDto,
-    file: Express.Multer.File,
+    files: Express.Multer.File[],
   ): Promise<any> {
     // 1️⃣ Validação básica
-    if (!file) {
-      throw new BadRequestException('Imagem do produto é obrigatória');
+    if (!files || files.length === 0) {
+      throw new BadRequestException('Pelo menos uma imagem do produto é obrigatória');
     }
 
-    // 2️⃣ Processamento e Conversão da Imagem com Sharp
-    let buffer: Buffer;
+    // 2️⃣ Processamento, conversão (Sharp) e upload de todas as imagens
+    const uploadedFileNames: string[] = [];
+    const imagensProcessadas: { fileName: string; publicUrl: string }[] = [];
+
     try {
-      buffer = await this.processImageBuffer(file);
-    } catch (err) {
-      console.error('Erro ao processar imagem:', err);
-      throw new BadRequestException('Falha ao processar arquivo de imagem');
+      for (const file of files) {
+        let buffer: Buffer;
+        try {
+          buffer = await this.processImageBuffer(file);
+        } catch (err) {
+          console.error('Erro ao processar imagem:', err);
+          throw new BadRequestException('Falha ao processar arquivo de imagem');
+        }
+
+        const fileName = `produtos/${dto.DS_SLUG}-${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`;
+
+        const { error: uploadError } = await supabaseAdmin.storage
+          .from('imagens-produtos')
+          .upload(fileName, buffer, {
+            contentType: 'image/jpeg',
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error(uploadError);
+          throw new InternalServerErrorException('Falha no upload da imagem');
+        }
+
+        uploadedFileNames.push(fileName);
+
+        const {
+          data: { publicUrl },
+        } = supabaseAdmin.storage.from('imagens-produtos').getPublicUrl(fileName);
+
+        imagensProcessadas.push({ fileName, publicUrl });
+      }
+    } catch (error) {
+      if (uploadedFileNames.length > 0) {
+        await supabaseAdmin.storage.from('imagens-produtos').remove(uploadedFileNames);
+      }
+      throw error;
     }
-
-    const fileName = `produtos/${dto.DS_SLUG}-${Date.now()}.jpg`;
-
-    // 3️⃣ Upload no Supabase
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from('imagens-produtos')
-      .upload(fileName, buffer, {
-        contentType: 'image/jpeg',
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error(uploadError);
-      throw new InternalServerErrorException('Falha no upload da imagem');
-    }
-
-    // 4️⃣ URL pública
-    const {
-      data: { publicUrl },
-    } = supabaseAdmin.storage.from('imagens-produtos').getPublicUrl(fileName);
 
     // 5️⃣ Parse das variações
     let variacoesProcessadas: any[] = [];
@@ -94,7 +108,7 @@ export class ProdutosService {
           ? JSON.parse(dto.variacoes)
           : dto.variacoes;
     } catch {
-      await supabaseAdmin.storage.from('imagens-produtos').remove([fileName]);
+      await supabaseAdmin.storage.from('imagens-produtos').remove(uploadedFileNames);
       throw new BadRequestException('Formato inválido das variações');
     }
 
@@ -122,11 +136,12 @@ export class ProdutosService {
             },
 
             IMAGENS_PRODUTO: {
-              create: {
-                DS_URL: publicUrl,
-                SN_PRINCIPAL: dto.SN_PRINCIPAL,
+              create: imagensProcessadas.map((img, index) => ({
+                DS_URL: img.publicUrl,
+                SN_PRINCIPAL: index === 0 ? dto.SN_PRINCIPAL : 'N',
+                NR_ORDEM: index,
                 TS_CRIACAO: new Date(),
-              },
+              })),
             },
           },
           select: {
@@ -159,7 +174,7 @@ export class ProdutosService {
       return produto;
     } catch (error) {
       // 8️⃣ Rollback do Supabase se falhar
-      await supabaseAdmin.storage.from('imagens-produtos').remove([fileName]);
+      await supabaseAdmin.storage.from('imagens-produtos').remove(uploadedFileNames);
       throw error;
     }
   }
