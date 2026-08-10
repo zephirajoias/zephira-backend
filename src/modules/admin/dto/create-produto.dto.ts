@@ -1,4 +1,4 @@
-import { Transform, Type } from 'class-transformer';
+import { Transform, Type, plainToInstance } from 'class-transformer';
 import {
   IsArray,
   IsIn,
@@ -73,11 +73,15 @@ export class CreateProdutoDto {
   VL_PRECO: number;
 
   // Chega como string JSON (multipart/form-data), então precisa ser parseado
-  // antes das validações de array/nested rodarem.
+  // antes das validações de array/nested rodarem. Importante: já instanciamos
+  // CreateProdutoVariacaoDto aqui dentro (em vez de devolver objetos "soltos"),
+  // porque um @Transform customizado substitui a instanciação automática que
+  // o @Type() faria — sem isso, o whitelist:true global do Nest não reconhece
+  // os campos de cada item e apaga tudo, virando "{}" em cada variação.
   @Transform(({ value }) => {
     if (typeof value !== 'string') return value;
     try {
-      return JSON.parse(value);
+      return plainToInstance(CreateProdutoVariacaoDto, JSON.parse(value));
     } catch {
       return value;
     }
