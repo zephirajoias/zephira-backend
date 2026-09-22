@@ -908,7 +908,12 @@ FROM
     }
 
     // Agora pedimos pro Supabase enviar o e-mail!
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    // Remove a barra final (o FRONTEND_URL no .env vem com "/" no fim),
+    // senão o link sai com barra dupla e pode não bater com o allowlist
+    // de Redirect URLs configurado no Supabase.
+    const frontendUrl = (
+      process.env.FRONTEND_URL || 'http://localhost:3000'
+    ).replace(/\/+$/, '');
 
     const { error } = await this.supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${frontendUrl}/resete-senha`,
