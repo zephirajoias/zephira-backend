@@ -31,6 +31,37 @@ export class AdminService {
     );
   }
 
+  // Se createUser falhar porque o e-mail já existe no Supabase (ex: uma
+  // migração anterior criou o usuário lá mas não terminou de salvar o
+  // vínculo local por causa de timeout/instabilidade), retorna true em vez
+  // de deixar a conta tentando recriar um usuário que já existe pra sempre.
+  private ehErroDeEmailJaExistente(error: any): boolean {
+    return (
+      error?.code === 'email_exists' ||
+      /already.*registered/i.test(error?.message ?? '')
+    );
+  }
+
+  // Busca o usuário no Supabase Auth pelo e-mail. Só usado quando
+  // createUser já disse que ele existe, então isso é sempre um "achar de
+  // novo", não uma tentativa de adivinhar se existe.
+  private async buscarUsuarioSupabasePorEmail(
+    email: string,
+  ): Promise<{ id: string } | null> {
+    const { data, error } = await this.supabase.auth.admin.listUsers({
+      page: 1,
+      perPage: 200,
+    });
+
+    if (error) return null;
+
+    return (
+      data.users.find(
+        (u: any) => u.email?.toLowerCase() === email.toLowerCase(),
+      ) ?? null
+    );
+  }
+
   async create(createAdminDto: CreateAdminDto): Promise<USUARIO> {
     const verificarAdmin = await this.prismaService.uSUARIO.findUnique({
       where: { DS_EMAIL: createAdminDto.DS_EMAIL },
@@ -143,7 +174,31 @@ export class AdminService {
           email_confirm: true,
         });
 
-      if (authError) {
+      let supabaseUserId: string;
+
+      if (!authError) {
+        supabaseUserId = authData.user.id;
+      } else if (this.ehErroDeEmailJaExistente(authError)) {
+        // A conta já existe no Supabase (provavelmente uma migração
+        // anterior que não terminou de salvar o vínculo local). Acha o
+        // usuário e sincroniza a senha com a que acabou de ser validada
+        // pelo bcrypt, pra garantir que os dois lados batem daqui pra frente.
+        const existente = await this.buscarUsuarioSupabasePorEmail(
+          loginAdminDto.DS_EMAIL,
+        );
+
+        if (!existente) {
+          throw new ConflictException(
+            `Erro ao migrar usuário: ${authError.message}`,
+          );
+        }
+
+        await this.supabase.auth.admin.updateUserById(existente.id, {
+          password: loginAdminDto.DS_SENHA,
+        });
+
+        supabaseUserId = existente.id;
+      } else {
         throw new ConflictException(
           `Erro ao migrar usuário: ${authError.message}`,
         );
@@ -152,7 +207,7 @@ export class AdminService {
       // 2.3 Atualiza o banco salvando o ID do Supabase
       await this.prismaService.uSUARIO.update({
         where: { CD_USUARIO: user.CD_USUARIO },
-        data: { CD_AUTH_SUPABASE: authData.user.id },
+        data: { CD_AUTH_SUPABASE: supabaseUserId },
       });
     } else {
       // 3. SE O USUÁRIO JÁ FOI MIGRADO (Ou é um usuário novo)
@@ -898,11 +953,22 @@ FROM
           email_confirm: true,
         });
 
-      if (!authError && authData.user) {
+      // A senha temporária aqui é descartável (o fluxo inteiro existe pra
+      // ele escolher uma senha nova no /resete-senha), então se a conta já
+      // existir no Supabase (ex: uma tentativa anterior que criou lá mas
+      // não terminou de salvar o vínculo local), só precisamos achar o ID
+      // pra linkar — não precisa sincronizar senha nenhuma.
+      const supabaseUserId = !authError
+        ? authData.user?.id
+        : this.ehErroDeEmailJaExistente(authError)
+          ? (await this.buscarUsuarioSupabasePorEmail(user.DS_EMAIL))?.id
+          : undefined;
+
+      if (supabaseUserId) {
         // Salva o ID do Supabase no banco
         await this.prismaService.uSUARIO.update({
           where: { CD_USUARIO: user.CD_USUARIO },
-          data: { CD_AUTH_SUPABASE: authData.user.id },
+          data: { CD_AUTH_SUPABASE: supabaseUserId },
         });
       }
     }
