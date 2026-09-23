@@ -376,7 +376,7 @@ export class ProdutosService {
         data: {
           CD_PRODUTO: Number(cd_produto),
           DS_URL: publicUrl,
-          SN_PRINCIPAL: '0',
+          SN_PRINCIPAL: 'N',
           TS_CRIACAO: new Date(),
         },
       });
@@ -414,15 +414,18 @@ export class ProdutosService {
   ): Promise<any> {
     return await this.prismaService.$transaction(async (tx: any) => {
       // Remove principal de todas as imagens do produto
+      // (o valor de verdade usado em todo o resto do sistema é 'S'/'N',
+      // não '1'/'0' — gravar '1' aqui deixava a imagem "principal" sem
+      // nenhuma query de leitura reconhecer ela como capa)
       await tx.iMAGENS_PRODUTO.updateMany({
         where: { CD_PRODUTO: Number(cd_produto) },
-        data: { SN_PRINCIPAL: '0' },
+        data: { SN_PRINCIPAL: 'N' },
       });
 
       // Define a nova principal
       return await tx.iMAGENS_PRODUTO.update({
         where: { CD_IMAGEM: Number(cd_imagem) },
-        data: { SN_PRINCIPAL: '1' },
+        data: { SN_PRINCIPAL: 'S' },
       });
     });
   }

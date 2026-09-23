@@ -686,7 +686,7 @@ WHERE
     AND VP."CD_PRODUTO" = P."CD_PRODUTO"
     AND IP."CD_PEDIDO" = PED."CD_PEDIDO"
     AND IMG."CD_PRODUTO" = P."CD_PRODUTO"
-    AND IMG."SN_PRINCIPAL" = '1'
+    AND IMG."SN_PRINCIPAL" = 'S'
     AND PED."TP_STATUS" NOT IN ('CANCELADO', 'DEVOLVIDO')
 GROUP BY
     P."CD_PRODUTO",
@@ -793,7 +793,7 @@ ORDER BY
         WHERE img."CD_PRODUTO" = p."CD_PRODUTO"
     ) AS "IMAGENS",
     COALESCE(
-        (SELECT img."DS_URL" FROM "Zephira"."IMAGENS_PRODUTO" img WHERE img."CD_PRODUTO" = p."CD_PRODUTO" AND img."SN_PRINCIPAL" = '1' LIMIT 1),
+        (SELECT img."DS_URL" FROM "Zephira"."IMAGENS_PRODUTO" img WHERE img."CD_PRODUTO" = p."CD_PRODUTO" AND img."SN_PRINCIPAL" = 'S' LIMIT 1),
         (SELECT img."DS_URL" FROM "Zephira"."IMAGENS_PRODUTO" img WHERE img."CD_PRODUTO" = p."CD_PRODUTO" LIMIT 1),
         '/assets/placeholder.png'
     ) AS ds_imagem_thumb,
