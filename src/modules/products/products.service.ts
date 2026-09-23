@@ -127,24 +127,94 @@ export class ProductsService {
     });
   }
 
+  // DS_SLUG não é único (ex: "aco" existe embaixo de Brinco, Colar,
+  // Pulseira etc), então a busca é hierárquica: primeiro acha a categoria
+  // de topo pelo slug, depois (se veio subcategoria) acha a filha dela
+  // especificamente — em vez de casar qualquer categoria com esse slug
+  // solto, o que misturaria produtos de categorias diferentes.
   async buscaCategoriaPorSlug(
     slug: string,
+    subSlug?: string,
     page = 1,
     limit = 20,
   ): Promise<any> {
-    const categoria = await this.prismaService.cATEGORIA.findFirst({
-      where: { DS_SLUG: slug, SN_ATIVO: 1 },
+    const categoriaPai = await this.prismaService.cATEGORIA.findFirst({
+      where: { DS_SLUG: slug, CD_CATEGORIA_PAI: null, SN_ATIVO: 1 },
     });
 
-    if (!categoria) {
+    if (!categoriaPai) {
       throw new NotFoundException('Categoria não encontrada.');
     }
 
-    const produtos = await this.listaProdutos(page, limit, slug);
+    let categoriaAlvo = categoriaPai;
+    let categoriaIds: number[];
+
+    if (subSlug) {
+      const filha = await this.prismaService.cATEGORIA.findFirst({
+        where: {
+          DS_SLUG: subSlug,
+          CD_CATEGORIA_PAI: categoriaPai.CD_CATEGORIA,
+          SN_ATIVO: 1,
+        },
+      });
+
+      if (!filha) {
+        throw new NotFoundException('Subcategoria não encontrada.');
+      }
+
+      categoriaAlvo = filha;
+      categoriaIds = [filha.CD_CATEGORIA];
+    } else {
+      // Sem subcategoria: mostra produtos de todas as filhas (é onde os
+      // produtos realmente ficam tageados) mais o próprio pai, se algum
+      // produto estiver tageado direto nele.
+      const filhas = await this.prismaService.cATEGORIA.findMany({
+        where: { CD_CATEGORIA_PAI: categoriaPai.CD_CATEGORIA, SN_ATIVO: 1 },
+        select: { CD_CATEGORIA: true },
+      });
+      categoriaIds = [
+        categoriaPai.CD_CATEGORIA,
+        ...filhas.map((f) => f.CD_CATEGORIA),
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+    const where = {
+      SN_ATIVO: 'S',
+      PRODUTOS_CATEGORIA: { some: { CD_CATEGORIA: { in: categoriaIds } } },
+    };
+
+    const [produtos, total] = await this.prismaService.$transaction([
+      this.prismaService.pRODUTOS.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { TS_CRIACAO: 'desc' },
+        select: {
+          CD_PRODUTO: true,
+          NM_PRODUTO: true,
+          DS_SLUG: true,
+          VL_PRECO: true,
+          VL_PRECO_PROMOCIONAL: true,
+          IMAGENS_PRODUTO: {
+            where: { SN_PRINCIPAL: 'S' },
+            take: 1,
+            select: { DS_URL: true },
+          },
+        },
+      }),
+      this.prismaService.pRODUTOS.count({ where }),
+    ]);
 
     return {
-      categoria,
-      ...produtos,
+      categoria: categoriaAlvo,
+      data: produtos,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 }

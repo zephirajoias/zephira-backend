@@ -25,12 +25,14 @@ export class ProductsController {
   async buscaCategoriaPorSlug(
     @Res() res: Response,
     @Param('slug') slug: string,
+    @Query('subcategoria') subcategoria?: string,
     @Query('page') page = '1',
     @Query('limit') limit = '20',
   ): Promise<any> {
     try {
       const result = await this.productsService.buscaCategoriaPorSlug(
         slug,
+        subcategoria,
         Number(page) || 1,
         Number(limit) || 20,
       );
