@@ -6,6 +6,7 @@ import * as path from 'path';
 import { LojaModule } from '../loja/loja.module';
 import { AdminController } from './controllers/admin.controller';
 import { CategoriasController } from './controllers/categorias.controller';
+import { ConfiguracoesPublicasController } from './controllers/configuracoes-publicas.controller';
 import { ConfiguracoesController } from './controllers/configuracoes.controller';
 import { PedidosController } from './controllers/pedidos.controller';
 import { ProdutosController } from './controllers/produtos.controller';
@@ -54,6 +55,7 @@ const publicKeyPath = path.join(process.cwd(), 'keys/public.pem');
     ProdutosController,
     PromocoesController,
     ConfiguracoesController,
+    ConfiguracoesPublicasController,
     PedidosController,
     TagsController,
   ],

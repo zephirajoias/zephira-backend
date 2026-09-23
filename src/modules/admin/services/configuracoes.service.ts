@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import sharp from 'sharp';
+import { supabaseAdmin } from 'src/common/supabase/supabase.provider';
 import { PrismaService } from 'src/prisma/services/prisma.service';
 import { UpdateConfiguracoesDto } from '../dto/update-configuracoes.dto';
 
@@ -37,5 +39,62 @@ export class ConfiguracoesService {
       update: dados,
       create: { CD_CONFIGURACAO: 1, ...dados },
     });
+  }
+
+  async uploadImagemMarca(
+    tipo: 'logo' | 'favicon',
+    file: Express.Multer.File,
+  ): Promise<{ url: string }> {
+    if (!file) {
+      throw new BadRequestException('Nenhum arquivo enviado.');
+    }
+
+    const tamanho = tipo === 'favicon' ? 256 : 512;
+
+    const buffer = await sharp(file.buffer)
+      .resize(tamanho, tamanho, { fit: 'inside', withoutEnlargement: true })
+      .png()
+      .toBuffer();
+
+    const fileName = `config/${tipo}-${Date.now()}.png`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('imagens-produtos')
+      .upload(fileName, buffer, { contentType: 'image/png', upsert: false });
+
+    if (uploadError) {
+      throw new InternalServerErrorException(
+        `Falha no upload do ${tipo === 'favicon' ? 'favicon' : 'logo'}.`,
+      );
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabaseAdmin.storage.from('imagens-produtos').getPublicUrl(fileName);
+
+    const campo = tipo === 'favicon' ? 'DS_URL_FAVICON' : 'DS_URL_LOGO';
+
+    await this.prismaService.cONFIGURACOES_LOJA.upsert({
+      where: { CD_CONFIGURACAO: 1 },
+      update: { [campo]: publicUrl, TS_ATUALIZACAO: new Date() },
+      create: {
+        CD_CONFIGURACAO: 1,
+        NM_LOJA: 'Zephira Joias',
+        [campo]: publicUrl,
+      },
+    });
+
+    return { url: publicUrl };
+  }
+
+  // Sem autenticação de propósito — precisa ser lido pelo <head> da loja e
+  // do admin (favicon/nome aparecem antes de qualquer login).
+  async getConfiguracoesPublicas(): Promise<any> {
+    const config = await this.prismaService.cONFIGURACOES_LOJA.findUnique({
+      where: { CD_CONFIGURACAO: 1 },
+      select: { NM_LOJA: true, DS_URL_LOGO: true, DS_URL_FAVICON: true },
+    });
+
+    return config ?? { NM_LOJA: null, DS_URL_LOGO: null, DS_URL_FAVICON: null };
   }
 }

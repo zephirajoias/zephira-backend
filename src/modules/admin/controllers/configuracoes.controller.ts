@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Put, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Res,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { UpdateConfiguracoesDto } from '../dto/update-configuracoes.dto';
 import { AdminJwtGuard } from '../guards/admin-jwt.guard';
@@ -29,6 +40,42 @@ export class ConfiguracoesController {
       const result =
         await this.configuracoesService.updateConfiguracoesGerais(dto);
       return res.status(200).send(result);
+    } catch (err) {
+      console.log(err);
+      return res.status(409).send(err);
+    }
+  }
+
+  @Post('configuracoes/favicon')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFavicon(
+    @Res() res: Response,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<any> {
+    try {
+      const result = await this.configuracoesService.uploadImagemMarca(
+        'favicon',
+        file,
+      );
+      return res.status(201).send(result);
+    } catch (err) {
+      console.log(err);
+      return res.status(409).send(err);
+    }
+  }
+
+  @Post('configuracoes/logo')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadLogo(
+    @Res() res: Response,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<any> {
+    try {
+      const result = await this.configuracoesService.uploadImagemMarca(
+        'logo',
+        file,
+      );
+      return res.status(201).send(result);
     } catch (err) {
       console.log(err);
       return res.status(409).send(err);
