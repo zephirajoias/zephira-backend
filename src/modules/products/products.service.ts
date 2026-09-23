@@ -40,7 +40,10 @@ export class ProductsService {
           VL_PRECO: true,
           VL_PRECO_PROMOCIONAL: true,
           IMAGENS_PRODUTO: {
-            where: { SN_PRINCIPAL: '1' },
+            // O valor de verdade salvo é 'S'/'N' (ver produtos.service.ts do
+            // admin), não '1'/'0'. Com '1' esse filtro nunca batia com
+            // nenhuma imagem e a listagem sempre voltava sem foto.
+            where: { SN_PRINCIPAL: 'S' },
             take: 1,
             select: { DS_URL: true },
           },
