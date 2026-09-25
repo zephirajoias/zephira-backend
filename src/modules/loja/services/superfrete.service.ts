@@ -156,6 +156,10 @@ export class SuperFreteService {
     const opcoes = await this.request<any[]>('/api/v0/calculator', {
       from: { postal_code: cepOrigem },
       to: { postal_code: cepLimpo },
+      // Sem a lista de serviços a SuperFrete passou a responder "nenhum
+      // frete válido" (set/2026). 1 PAC, 2 SEDEX, 3 Jadlog, 17 Mini Envios,
+      // 31 Loggi.
+      services: '1,2,3,17,31',
       package: pacote,
     });
 
