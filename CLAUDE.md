@@ -158,6 +158,14 @@ mexer nessa stack nem nas portas dela (5678, 8080).
   e `zephira-admin`, com HTTPS do **certbot/Let's Encrypt**, o mesmo
   esquema que o n8n já usa nesse servidor. `client_max_body_size 30m` na
   API por causa do upload de fotos.
+- **Domínio novo: rodar o certbot logo depois de apontar o DNS.** O
+  Cloudflare liga na porta 443 da VPS. Enquanto o nome não tem
+  certificado, o nginx entrega o primeiro site com HTTPS que tiver, que é
+  o do Evolution, e a página mostra "Welcome to the Evolution API". Isso
+  aconteceu na troca de DNS de 2026-09-25. A ordem é: criar o site no
+  nginx (porta 80), apontar o DNS e rodar
+  `certbot --nginx -d <dominio> --non-interactive --redirect`.
+  A renovação é automática (`certbot.timer`).
 - O `.env` da API e o do front **existem só na VPS**. As chaves JWT de
   produção foram geradas lá e não saem de lá.
 - O workflow `.github/workflows/deploy.yml` faz build + `docker build` em
@@ -183,3 +191,6 @@ mexer nessa stack nem nas portas dela (5678, 8080).
   ambiente, com par novo gerado na VPS. Banco pelo session pooler.
   `/health` devolve o commit. Frete da SuperFrete voltou a funcionar
   (campo `services`).
+- **2026-09-25** — DNS trocado: `www`, `admin` e `api` passam a responder
+  pela VPS, com certificados do certbot. O domínio sem www ainda aponta
+  pra Vercel, que redireciona pro www.
