@@ -68,6 +68,21 @@ são só a reserva do desenvolvimento local e não entram na imagem Docker
 (`.dockerignore`). Token assinado com uma chave que não é a do servidor
 volta 401.
 
+## Estoque do pedido
+
+O estoque sai quando o pedido é criado (PENDENTE) e volta quando ele vira
+CANCELADO, seja pelo aviso (webhook) do Mercado Pago, seja pelo admin. Se
+um pedido cancelado volta a ser pago (o Mercado Pago deixa o cliente
+tentar de novo depois de um cartão recusado), as peças saem de novo.
+DEVOLVIDO (reembolso) não devolve estoque sozinho. Toda troca de status
+tem que passar por `acertarEstoqueDoPedido` (`src/common/estoque-pedido.ts`)
+na mesma transação. O webhook ignora aviso de "recusado" ou "pendente"
+chegando atrasado para um pedido que já está pago.
+
+Ponto em aberto: pedido abandonado (o cliente nunca paga) não recebe
+webhook nenhum, então essas peças continuam presas até alguém cancelar o
+pedido no admin.
+
 ## Upload de imagem (padrão usado em todo lugar)
 
 Multer (`FilesInterceptor`/`FileInterceptor`) → `sharp` processa/otimiza
@@ -194,3 +209,6 @@ mexer nessa stack nem nas portas dela (5678, 8080).
 - **2026-09-25** — DNS trocado: `www`, `admin` e `api` passam a responder
   pela VPS, com certificados do certbot. O domínio sem www ainda aponta
   pra Vercel, que redireciona pro www.
+- **2026-09-25** — Listagem e "mais vendido" usam a primeira foto quando
+  nenhuma está marcada como capa (40 produtos estavam assim). Cancelar
+  pedido devolve o estoque.

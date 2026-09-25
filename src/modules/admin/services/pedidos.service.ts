@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/services/prisma.service';
+import { acertarEstoqueDoPedido } from 'src/common/estoque-pedido';
 import { SuperFreteService } from 'src/modules/loja/services/superfrete.service';
 import { UpdatePedidoStatusDto } from '../dto/update-pedido-status.dto';
 
@@ -106,13 +107,26 @@ export class PedidosService {
       throw new NotFoundException('Pedido não encontrado.');
     }
 
-    return this.prismaService.pEDIDOS.update({
-      where: { CD_PEDIDO: idPedido },
-      data: {
-        TP_STATUS: dto.TP_STATUS,
-        CD_RASTREIO: dto.CD_RASTREIO,
-        TS_ATUALIZACAO: new Date(),
-      },
+    // Cancelar pelo admin devolve as peças pro estoque; reabrir um pedido
+    // cancelado tira de novo (ver common/estoque-pedido.ts).
+    return this.prismaService.$transaction(async (tx) => {
+      const pedido = await tx.pEDIDOS.update({
+        where: { CD_PEDIDO: idPedido },
+        data: {
+          TP_STATUS: dto.TP_STATUS,
+          CD_RASTREIO: dto.CD_RASTREIO,
+          TS_ATUALIZACAO: new Date(),
+        },
+      });
+      if (dto.TP_STATUS) {
+        await acertarEstoqueDoPedido(
+          tx,
+          idPedido,
+          pedidoExistente.TP_STATUS,
+          dto.TP_STATUS,
+        );
+      }
+      return pedido;
     });
   }
 

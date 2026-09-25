@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
+import { STATUS_PEDIDO } from '@prisma/client';
 import { PrismaService } from 'src/prisma/services/prisma.service';
+import { acertarEstoqueDoPedido } from 'src/common/estoque-pedido';
 
 interface ItemPreferencia {
   CD_PEDIDO: number;
@@ -12,7 +14,15 @@ interface ItemPreferencia {
   VL_TOTAL: number;
 }
 
-const STATUS_MP_PARA_PEDIDO: Record<string, string> = {
+const STATUS_JA_PAGO: STATUS_PEDIDO[] = [
+  'PAGO',
+  'PROCESSANDO',
+  'ENVIADO',
+  'ENTREGUE',
+  'DEVOLVIDO',
+];
+
+const STATUS_MP_PARA_PEDIDO: Record<string, STATUS_PEDIDO> = {
   approved: 'PAGO',
   pending: 'PENDENTE',
   in_process: 'PENDENTE',
@@ -120,14 +130,41 @@ export class PagamentoService {
       return;
     }
 
-    await this.prismaService.pEDIDOS.update({
-      where: { CD_PEDIDO: cdPedido },
-      data: {
-        TP_STATUS: novoStatus as any,
-        TP_METODO_PAGAMENTO: dadosPagamento.payment_type_id ?? undefined,
-        TS_ATUALIZACAO: new Date(),
-      },
+    // Pedido já pago (ou mais adiante) não volta pra PENDENTE/CANCELADO por
+    // causa do aviso atrasado de uma tentativa de pagamento que falhou.
+    if (
+      pedido.TP_STATUS &&
+      STATUS_JA_PAGO.includes(pedido.TP_STATUS) &&
+      (novoStatus === 'PENDENTE' || novoStatus === 'CANCELADO')
+    ) {
+      this.logger.warn(
+        `Webhook ignorado: pedido #${cdPedido} já está ${pedido.TP_STATUS}, payment ${paymentId} veio ${dadosPagamento.status}.`,
+      );
+      return;
+    }
+
+    const atualizou = await this.prismaService.$transaction(async (tx) => {
+      // Só grava se o status ainda for o que foi lido: o Mercado Pago repete
+      // avisos, e dois ao mesmo tempo não podem devolver o estoque duas vezes.
+      const { count } = await tx.pEDIDOS.updateMany({
+        where: { CD_PEDIDO: cdPedido, TP_STATUS: pedido.TP_STATUS },
+        data: {
+          TP_STATUS: novoStatus,
+          TP_METODO_PAGAMENTO: dadosPagamento.payment_type_id ?? undefined,
+          TS_ATUALIZACAO: new Date(),
+        },
+      });
+      if (count === 0) return false;
+      await acertarEstoqueDoPedido(tx, cdPedido, pedido.TP_STATUS, novoStatus);
+      return true;
     });
+
+    if (!atualizou) {
+      this.logger.warn(
+        `Pedido #${cdPedido} mudou durante o webhook (payment ${paymentId}); aviso ignorado.`,
+      );
+      return;
+    }
 
     this.logger.log(
       `Pedido #${cdPedido} atualizado para ${novoStatus} via webhook (payment ${paymentId}).`,
