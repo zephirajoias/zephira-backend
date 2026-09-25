@@ -40,10 +40,11 @@ export class ProductsService {
           VL_PRECO: true,
           VL_PRECO_PROMOCIONAL: true,
           IMAGENS_PRODUTO: {
-            // O valor de verdade salvo é 'S'/'N' (ver produtos.service.ts do
-            // admin), não '1'/'0'. Com '1' esse filtro nunca batia com
-            // nenhuma imagem e a listagem sempre voltava sem foto.
-            where: { SN_PRINCIPAL: 'S' },
+            // Capa ('S') primeiro; se nenhuma foto estiver marcada como capa,
+            // cai na primeira pela ordem. Filtrar só 'S' deixava sem foto
+            // produtos que têm imagem mas nenhuma marcada (o default da
+            // coluna no banco é '0').
+            orderBy: [{ SN_PRINCIPAL: 'desc' }, { NR_ORDEM: 'asc' }],
             take: 1,
             select: { DS_URL: true },
           },
@@ -197,7 +198,7 @@ export class ProductsService {
           VL_PRECO: true,
           VL_PRECO_PROMOCIONAL: true,
           IMAGENS_PRODUTO: {
-            where: { SN_PRINCIPAL: 'S' },
+            orderBy: [{ SN_PRINCIPAL: 'desc' }, { NR_ORDEM: 'asc' }],
             take: 1,
             select: { DS_URL: true },
           },

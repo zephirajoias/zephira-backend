@@ -674,24 +674,23 @@ LIMIT 5;`;
     >`SELECT
     P."NM_PRODUTO",
     SUM(IP."QT_ITEM") AS qt_total_vendida,
-    IMG."DS_URL" AS "DS_IMAGEM_THUMB"
+    (SELECT IMG."DS_URL" FROM "Zephira"."IMAGENS_PRODUTO" IMG
+      WHERE IMG."CD_PRODUTO" = P."CD_PRODUTO"
+      ORDER BY IMG."SN_PRINCIPAL" DESC, IMG."NR_ORDEM" ASC
+      LIMIT 1) AS "DS_IMAGEM_THUMB"
 FROM
     "Zephira"."ITENS_PEDIDO" IP,
     "Zephira"."VARIACOES_PRODUTO" VP,
     "Zephira"."PRODUTOS" P,
-    "Zephira"."PEDIDOS" PED,
-    "Zephira"."IMAGENS_PRODUTO" IMG
+    "Zephira"."PEDIDOS" PED
 WHERE
     IP."CD_VARIACAO" = VP."CD_VARIACAO"
     AND VP."CD_PRODUTO" = P."CD_PRODUTO"
     AND IP."CD_PEDIDO" = PED."CD_PEDIDO"
-    AND IMG."CD_PRODUTO" = P."CD_PRODUTO"
-    AND IMG."SN_PRINCIPAL" = 'S'
     AND PED."TP_STATUS" NOT IN ('CANCELADO', 'DEVOLVIDO')
 GROUP BY
     P."CD_PRODUTO",
-    P."NM_PRODUTO",
-    IMG."DS_URL"
+    P."NM_PRODUTO"
 ORDER BY
     qt_total_vendida DESC
 LIMIT
@@ -795,7 +794,7 @@ ORDER BY
     COALESCE(
         (SELECT img."DS_URL" FROM "Zephira"."IMAGENS_PRODUTO" img WHERE img."CD_PRODUTO" = p."CD_PRODUTO" AND img."SN_PRINCIPAL" = 'S' LIMIT 1),
         (SELECT img."DS_URL" FROM "Zephira"."IMAGENS_PRODUTO" img WHERE img."CD_PRODUTO" = p."CD_PRODUTO" LIMIT 1),
-        '/assets/placeholder.png'
+        '/placeholder.png'
     ) AS ds_imagem_thumb,
     c."CD_CATEGORIA",
     c."NM_CATEGORIA",
