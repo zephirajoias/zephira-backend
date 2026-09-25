@@ -2,6 +2,27 @@ import { Controller, Get, Param, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { ProductsService } from './products.service';
 
+// Catálogo público: o Cloudflare (São Paulo) guarda a resposta por 60s e
+// serve velha por até 5min enquanto renova, então o cliente não paga a
+// viagem até a VPS (EUA) a cada visita. Só respostas 200 passam por aqui;
+// erro nunca é cacheado.
+//
+// O CORS vai fixo no endereço da loja porque o cache não separa por Origin:
+// uma resposta guardada a partir de um pedido do servidor (sem Origin) ou de
+// outro site ficaria sem o cabeçalho certo e o navegador da loja falharia.
+function respondeComCache(res: Response, corpo: unknown): Response {
+  const loja = (
+    process.env.USER_FRONTEND_URL ?? 'https://www.zephirajoias.com.br'
+  ).replace(/\/+$/, '');
+  res.set({
+    'Cache-Control':
+      'public, max-age=0, s-maxage=60, stale-while-revalidate=300',
+    'Access-Control-Allow-Origin': loja,
+    'Access-Control-Allow-Credentials': 'true',
+  });
+  return res.status(200).send(corpo);
+}
+
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
@@ -14,7 +35,7 @@ export class ProductsController {
   async listaCategorias(@Res() res: Response): Promise<any> {
     try {
       const result = await this.productsService.listaCategorias();
-      return res.status(200).send(result);
+      return respondeComCache(res, result);
     } catch (err) {
       console.log(err);
       return res.status(409).send(err);
@@ -36,7 +57,7 @@ export class ProductsController {
         Number(page) || 1,
         Number(limit) || 20,
       );
-      return res.status(200).send(result);
+      return respondeComCache(res, result);
     } catch (err) {
       console.log(err);
       return res.status(409).send(err);
@@ -58,7 +79,7 @@ export class ProductsController {
         categoria,
         busca,
       );
-      return res.status(200).send(result);
+      return respondeComCache(res, result);
     } catch (err) {
       console.log(err);
       return res.status(409).send(err);
@@ -72,7 +93,7 @@ export class ProductsController {
   ): Promise<any> {
     try {
       const result = await this.productsService.buscaProdutoPorSlug(slug);
-      return res.status(200).send(result);
+      return respondeComCache(res, result);
     } catch (err) {
       console.log(err);
       return res.status(409).send(err);

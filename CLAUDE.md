@@ -83,6 +83,22 @@ Ponto em aberto: pedido abandonado (o cliente nunca paga) não recebe
 webhook nenhum, então essas peças continuam presas até alguém cancelar o
 pedido no admin.
 
+## Cache do catálogo público
+
+As 4 rotas de `/products` (`products.controller.ts`) respondem com
+`Cache-Control: s-maxage=60, stale-while-revalidate=300` via
+`respondeComCache`, pro Cloudflare de São Paulo guardar a resposta (a VPS
+fica nos EUA, ida e volta ~0,45s). **Só funciona com uma Cache Rule no
+Cloudflare** para `api.zephirajoias.com.br/products*` (o Cloudflare não
+cacheia JSON por padrão). O CORS dessas respostas é fixo no endereço da
+loja (`USER_FRONTEND_URL`) porque o cache não separa por `Origin`: sem
+isso, uma resposta guardada a partir de um pedido do servidor (sem
+Origin) faria o navegador da loja falhar por CORS. Consequência: essas
+rotas não servem pra `localhost` apontando pra API de produção. Preço e
+produto novo levam até ~1min pra aparecer; o checkout confere o estoque
+direto no banco, então não é afetado. Nunca aplicar `respondeComCache` em
+rota com dado por usuário.
+
 ## Upload de imagem (padrão usado em todo lugar)
 
 Multer (`FilesInterceptor`/`FileInterceptor`) → `sharp` processa/otimiza
@@ -212,3 +228,4 @@ mexer nessa stack nem nas portas dela (5678, 8080).
 - **2026-09-25** — Listagem e "mais vendido" usam a primeira foto quando
   nenhuma está marcada como capa (40 produtos estavam assim). Cancelar
   pedido devolve o estoque.
+- **2026-09-25** — Catálogo público com `Cache-Control` pro Cloudflare.
