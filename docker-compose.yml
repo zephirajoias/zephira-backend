@@ -1,0 +1,22 @@
+services:
+  backend:
+    build:
+      context: .
+    image: zephira-backend:latest
+    container_name: zephira-backend
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      # O deploy exporta o commit; o /health devolve esse valor.
+      GIT_SHA: ${GIT_SHA:-desconhecido}
+    ports:
+      # Só o nginx da própria VPS enxerga a API; o acesso de fora passa por
+      # Cloudflare -> nginx -> aqui.
+      - "127.0.0.1:3001:3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s

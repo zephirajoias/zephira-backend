@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+.git
+.env*
+# Em produção as chaves JWT vêm de JWT_PRIVATE_KEY / JWT_PUBLIC_KEY, nunca
+# de arquivo dentro da imagem.
+keys

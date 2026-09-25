@@ -1,27 +1,13 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Request } from 'express';
-import * as fs from 'fs';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import * as path from 'path';
+import { lerChavePublica } from 'src/common/chaves-jwt';
 
 @Injectable()
 export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
   constructor() {
-    const publicKeyPath = path.join(process.cwd(), 'keys/public.pem');
-    let publicKey: string;
-
-    try {
-      publicKey = fs.readFileSync(publicKeyPath, 'utf8');
-    } catch (error) {
-      throw new InternalServerErrorException(
-        'Erro ao carregar chaves de segurança.',
-      );
-    }
+    const publicKey = lerChavePublica();
 
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([

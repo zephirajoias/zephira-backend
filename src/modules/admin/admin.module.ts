@@ -1,8 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import * as fs from 'fs';
-import * as path from 'path';
+import { lerChavePrivada, lerChavePublica } from 'src/common/chaves-jwt';
 import { LojaModule } from '../loja/loja.module';
 import { AdminController } from './controllers/admin.controller';
 import { CategoriasController } from './controllers/categorias.controller';
@@ -22,31 +21,20 @@ import { TagsService } from './services/tags.service';
 import { AdminJwtStrategy } from './strategies/admin-jwt.strategy';
 import { GoogleAdminStrategy } from './strategies/google-admin.strategy';
 
-const privateKeyPath = path.join(process.cwd(), 'keys/private.pem');
-const publicKeyPath = path.join(process.cwd(), 'keys/public.pem');
-
 @Module({
   imports: [
     LojaModule,
     JwtModule.registerAsync({
       global: true,
       inject: [ConfigService],
-      useFactory: async () => {
-        if (!privateKeyPath || !publicKeyPath) {
-          throw new Error(
-            'CRITICAL: JWT keys are missing in environment configuration.',
-          );
-        }
-
-        return {
-          privateKey: fs.readFileSync(privateKeyPath, 'utf8'),
-          publicKey: fs.readFileSync(publicKeyPath, 'utf8'),
-          signOptions: {
-            algorithm: 'RS256',
-            expiresIn: '8h',
-          },
-        };
-      },
+      useFactory: async () => ({
+        privateKey: lerChavePrivada(),
+        publicKey: lerChavePublica(),
+        signOptions: {
+          algorithm: 'RS256',
+          expiresIn: '8h',
+        },
+      }),
     }),
   ],
   controllers: [

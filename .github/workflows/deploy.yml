@@ -1,0 +1,83 @@
+name: CI & Deploy
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      # prisma generate + nest build. Os testes (.spec.ts) ainda são os
+      # exemplos gerados pelo Nest e falham; entram aqui quando forem reais.
+      - run: pnpm build
+
+      # Pega erro de Dockerfile antes de chegar na VPS.
+      - run: docker build -t zephira-backend:ci .
+
+  # Desligado até existir a variável de repositório DEPLOY_ENABLED=true
+  # (Settings → Secrets and variables → Actions → Variables). Precisa dos
+  # secrets VPS_HOST, VPS_USER e VPS_SSH_KEY.
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    # Dois deploys ao mesmo tempo disputam o git pull e o build na VPS.
+    concurrency:
+      group: deploy-backend
+      cancel-in-progress: false
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            set -e
+            # O .env e o nginx ficam só na VPS (ver CLAUDE.md, "Deploy").
+            cd /opt/zephira/back-end
+            git pull --ff-only origin main
+            export GIT_SHA=$(git rev-parse HEAD)
+            # Com set -e, um build quebrado para aqui e o container antigo
+            # continua no ar.
+            docker compose build
+            docker compose up -d --wait
+            docker image prune -f
+
+  health-check:
+    needs: deploy
+    if: github.event_name != 'pull_request' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Esperar /health responder com ESTE commit
+        run: |
+          # 200 sozinho não basta: o container antigo continua respondendo
+          # se o novo não subir. Exige o SHA novo.
+          for i in $(seq 1 36); do
+            body=$(curl -s https://api.zephirajoias.com.br/health || true)
+            echo "tentativa $i -> $body"
+            if echo "$body" | grep -q "${{ github.sha }}"; then
+              echo "API no ar com ${{ github.sha }}."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::/health não mostrou ${{ github.sha }} em ~6 min"
+          exit 1

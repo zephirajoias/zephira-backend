@@ -1,11 +1,20 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const logger = new Logger('Bootstrap');
+
+  // Quantos proxies ficam na frente da API. Na VPS são 2 (Cloudflare e
+  // nginx). Sem isso, todo visitante aparece como 127.0.0.1 e o limite de
+  // requisições (60/min) vira um contador único pra loja inteira.
+  const saltosProxy = Number(process.env.TRUST_PROXY_HOPS);
+  if (saltosProxy > 0) {
+    app.set('trust proxy', saltosProxy);
+  }
 
   app.useGlobalPipes(
     new ValidationPipe({

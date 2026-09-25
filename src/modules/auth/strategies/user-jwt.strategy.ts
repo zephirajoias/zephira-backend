@@ -1,17 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Request } from 'express';
-import * as fs from 'fs';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import * as path from 'path';
+import { lerChavePublica } from 'src/common/chaves-jwt';
 
 @Injectable()
 export class UserJwtStrategy extends PassportStrategy(Strategy, 'user-jwt') {
   constructor() {
-    const publicKey = fs.readFileSync(
-      path.join(process.cwd(), 'keys/public.pem'),
-      'utf8',
-    );
+    const publicKey = lerChavePublica();
 
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
