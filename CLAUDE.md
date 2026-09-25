@@ -62,12 +62,11 @@ linka em vez de travar tentando recriar um usuário que já existe. Ver
 Se esse padrão de "conta órfã no Supabase" reaparecer em outro fluxo,
 reusar essa lógica.
 
-As chaves de assinatura do JWT (RS256) vêm de arquivo:
-`keys/private.pem` / `keys/public.pem` (commitados no repo, não são
-segredo — trocar se algum dia isso incomodar). As variáveis de ambiente
-`JWT_PRIVATE_KEY`/`JWT_PUBLIC_KEY` no `.env` **não são usadas** por esse
-fluxo (existem só pra outra coisa/ficaram órfãs — checar antes de
-assumir que mexer nelas afeta o login).
+As chaves de assinatura do JWT (RS256) vêm de `JWT_PRIVATE_KEY` /
+`JWT_PUBLIC_KEY` (ver `src/common/chaves-jwt.ts`). Os arquivos em `keys/`
+são só a reserva do desenvolvimento local e não entram na imagem Docker
+(`.dockerignore`). Token assinado com uma chave que não é a do servidor
+volta 401.
 
 ## Upload de imagem (padrão usado em todo lugar)
 
@@ -83,17 +82,22 @@ instância.
 
 ## Infra — instabilidades conhecidas (não é bug do seu código)
 
-- **Render (free tier)**: o backend "dorme" depois de ~15min sem uso e o
-  primeiro request depois disso pode levar 60-100s+ pra responder. Isso
-  já confundiu gente achando que a aplicação tinha travado. Qualquer
-  frontend que chama a API precisa de timeout (não deixar a UI presa em
-  "Carregando..." pra sempre) — ver `apps/CLAUDE.md`.
-- **Conexão direta com o Postgres (porta 5432) da Supabase**: intermitente
-  nesse ambiente de dev — falha com `Can't reach database server` do
-  nada e volta a funcionar numa tentativa seguinte, sem mudar nada. A
-  API HTTP da Supabase (Auth, Storage, PostgREST) não tem esse problema,
-  só a conexão direta via Prisma. Se um comando com Prisma falhar assim,
-  **tentar de novo antes de investigar mais fundo**.
+- **Render (free tier)**, em processo de ser desligado (ver "Deploy"):
+  dorme depois de ~15min sem uso e o primeiro request pode levar 60-100s+.
+  Qualquer frontend que chama a API precisa de timeout (não deixar a UI
+  presa em "Carregando..." pra sempre) — ver `apps/CLAUDE.md`.
+- **Conexão direta com o Postgres da Supabase** (`db.<ref>.supabase.co`)
+  só responde por IPv6 e falha de forma intermitente com `Can't reach
+  database server`. Em produção a API usa o **session pooler**
+  (`aws-1-us-east-1.pooler.supabase.com:5432`, usuário `postgres.<ref>`),
+  que responde por IPv4. O `.env` local ainda usa a conexão direta: se um
+  comando com Prisma falhar assim aqui, tentar de novo ou trocar pro
+  pooler. O banco fica em us-east-1 (EUA), então cada consulta vinda do
+  Brasil custa ~120 ms de ida e volta.
+- **SuperFrete `/calculator` exige o campo `services`** desde set/2026.
+  Sem ele a API responde "Nenhum frete válido encontrado" e o carrinho fica
+  sem opção de frete. Hoje o código manda `1,2,3,17,31` (PAC, SEDEX,
+  Jadlog, Mini Envios, Loggi).
 - `FRONTEND_URL` no `.env` tem `/` no final — qualquer código que
   concatena esse valor com um path (ex: link de recuperação de senha)
   precisa tirar a barra final primeiro (`.replace(/\/+$/, '')`), senão
@@ -125,3 +129,57 @@ instância.
 `SUPERFRETE_USER_AGENT` (+ `SUPERFRETE_REMETENTE_*`/`SUPERFRETE_PACOTE_*`
 como fallback — o valor de verdade fica editável em Configurações Gerais
 no admin, salvo em `CONFIGURACOES_LOJA`).
+
+Só em produção: `NODE_ENV=production`, `PORT=3001`,
+`TZ=America/Sao_Paulo`, `TRUST_PROXY_HOPS=2` (Cloudflare + nginx; sem
+isso todo visitante aparece como 127.0.0.1 e o limite de 60 req/min vira
+um contador único pra loja inteira), `JWT_PRIVATE_KEY`/`JWT_PUBLIC_KEY`
+(PEM numa linha, com `\n` literal; lidas por `src/common/chaves-jwt.ts`,
+que só cai nos arquivos de `keys/` quando a variável não existe).
+Opcionais: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+`GOOGLE_CALLBACK_URL_ADMIN`, `GOOGLE_CALLBACK_URL_USER` (sem elas o login
+com Google fica desligado e o resto sobe normal). `GIT_SHA` vem do deploy.
+
+## Deploy (VPS da loja)
+
+A VPS é da própria loja (Ubuntu 24.04, Docker + nginx + certbot). Ela
+**também roda a stack de automação da loja** (n8n, Evolution API e um
+Postgres, em `/root/automacao`, sites `n8n` e `evolution` no nginx). Não
+mexer nessa stack nem nas portas dela (5678, 8080).
+
+- Código em `/opt/zephira/back-end` (este repo) e `/opt/zephira/front-end`
+  (repo `zephira-frontend`), clonados por HTTPS enquanto os repositórios
+  forem públicos. Se virarem privados, a VPS precisa de uma deploy key por
+  repositório (o GitHub não aceita a mesma chave em dois) e o `remote` de
+  cada clone passa pra SSH.
+- Containers: API em `127.0.0.1:3001`, loja em `:3000`, admin em `:3002`.
+  Nada exposto direto; tudo passa pelo nginx.
+- nginx: sites `zephira-api`, `zephira-loja` (sem www redireciona pra www)
+  e `zephira-admin`, com HTTPS do **certbot/Let's Encrypt**, o mesmo
+  esquema que o n8n já usa nesse servidor. `client_max_body_size 30m` na
+  API por causa do upload de fotos.
+- O `.env` da API e o do front **existem só na VPS**. As chaves JWT de
+  produção foram geradas lá e não saem de lá.
+- O workflow `.github/workflows/deploy.yml` faz build + `docker build` em
+  todo push. O deploy (SSH → `git pull` → `docker compose build` →
+  `up -d --wait`) só roda com a variável de repositório `DEPLOY_ENABLED=true`
+  e os secrets `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`. Depois ele confere se
+  `https://api.zephirajoias.com.br/health` mostra o commit novo.
+- Deploy manual, na VPS:
+  ```bash
+  cd /opt/zephira/back-end && git pull --ff-only
+  export GIT_SHA=$(git rev-parse HEAD)
+  docker compose build && docker compose up -d --wait
+  ```
+- A imagem é Debian slim (não Alpine) porque bcrypt, sharp e o engine do
+  Prisma têm binário pronto pra glibc. O build sai em `dist/src/main.js`
+  (o `jest.config.ts` na raiz empurra tudo um nível pra baixo).
+
+## Histórico de mudanças relevantes
+
+- **2026-09-24** — Análise completa do projeto (backend, admin, loja).
+- **2026-09-25** — API, loja e admin empacotados em Docker e publicados na
+  VPS da loja, ao lado da stack de automação. Chaves JWT passam a vir do
+  ambiente, com par novo gerado na VPS. Banco pelo session pooler.
+  `/health` devolve o commit. Frete da SuperFrete voltou a funcionar
+  (campo `services`).
