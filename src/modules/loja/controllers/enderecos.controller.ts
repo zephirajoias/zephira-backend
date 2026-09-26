@@ -30,8 +30,7 @@ export class EnderecosController {
       );
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -48,8 +47,7 @@ export class EnderecosController {
       );
       return res.status(201).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -68,8 +66,7 @@ export class EnderecosController {
       );
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -86,8 +83,7 @@ export class EnderecosController {
       );
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 }

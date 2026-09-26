@@ -33,8 +33,7 @@ export class AdminController {
       const result = await this.adminService.listaAdmin();
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -49,8 +48,7 @@ export class AdminController {
       console.log(response);
       return res.status(201).send('Sucesso');
     } catch (error) {
-      console.log(error);
-      return res.status(409).json(error);
+      throw error;
     }
   }
 
@@ -87,8 +85,7 @@ export class AdminController {
       const response = await this.adminService.authAdmin(dto);
       return res.status(200).json(response);
     } catch (err) {
-      console.log(err);
-      return res.status(409).json(err);
+      throw err;
     }
   }
 
@@ -130,8 +127,7 @@ export class AdminController {
       );
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -142,8 +138,7 @@ export class AdminController {
       const result = await this.adminService.painelAdmin();
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -154,8 +149,7 @@ export class AdminController {
       const result = await this.adminService.painelPedidos();
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -166,8 +160,7 @@ export class AdminController {
       const result = await this.adminService.pedidosRecentes();
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -178,8 +171,7 @@ export class AdminController {
       const result = await this.adminService.estoqueBaixo();
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -190,8 +182,7 @@ export class AdminController {
       const result = await this.adminService.produtoMaisVendido();
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -202,8 +193,7 @@ export class AdminController {
       const result = await this.adminService.pedidosDetalhes();
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -214,8 +204,7 @@ export class AdminController {
       const result = await this.adminService.estoqueDetalhes();
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -229,8 +218,7 @@ export class AdminController {
       await this.adminService.deleteAdmin(Number(id));
       return res.status(200).send('sucesso');
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -248,8 +236,7 @@ export class AdminController {
       );
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 }

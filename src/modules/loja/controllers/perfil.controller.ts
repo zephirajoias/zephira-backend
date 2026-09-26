@@ -15,8 +15,7 @@ export class PerfilController {
       const result = await this.perfilService.getPerfil(req.user.userId);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -33,8 +32,7 @@ export class PerfilController {
       );
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -51,8 +49,7 @@ export class PerfilController {
       );
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 }

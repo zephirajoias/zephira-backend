@@ -33,8 +33,7 @@ export class PedidosController {
       );
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -47,8 +46,7 @@ export class PedidosController {
       const result = await this.pedidosService.pedidoDetalhes(id);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -62,8 +60,7 @@ export class PedidosController {
       const result = await this.pedidosService.atualizaStatus(id, dto);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -76,8 +73,7 @@ export class PedidosController {
       const result = await this.pedidosService.comprarEtiqueta(id);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 }

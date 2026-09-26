@@ -29,8 +29,7 @@ export class PromocoesController {
       const result = await this.promocoesService.createPromocao(dto);
       return res.status(201).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -40,8 +39,7 @@ export class PromocoesController {
       const result = await this.promocoesService.listaPromocoes();
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -51,8 +49,7 @@ export class PromocoesController {
       const result = await this.promocoesService.listaTiposPromocoes();
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -66,8 +63,7 @@ export class PromocoesController {
       const result = await this.promocoesService.editaPromocao(dto, promocaoId);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -80,8 +76,7 @@ export class PromocoesController {
       const result = await this.promocoesService.deletePromocao(promocaoId);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 }

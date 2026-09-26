@@ -24,22 +24,34 @@ export class ProductsService {
     }
 
     if (busca) {
-      // Cada palavra precisa aparecer (em qualquer ordem). Além do nome,
-      // procura no slug, que não tem acento: assim "aco" acha "Aço".
+      // Cada palavra precisa aparecer (em qualquer ordem) no nome, no slug
+      // ou na categoria da peça. Slug não tem acento ("aco" acha "Aço"), e o
+      // material fica na subcategoria (Prata, Ouro, Aço), não no nome.
       const palavras = busca.trim().split(/\s+/).filter(Boolean).slice(0, 6);
-      where.AND = palavras.map((palavra) => ({
-        OR: [
-          { NM_PRODUTO: { contains: palavra, mode: 'insensitive' } },
-          {
-            DS_SLUG: {
-              contains: palavra
-                .normalize('NFD')
-                .replace(/[̀-ͯ]/g, '')
-                .toLowerCase(),
+      where.AND = palavras.map((palavra) => {
+        const semAcento = palavra
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .toLowerCase();
+        return {
+          OR: [
+            { NM_PRODUTO: { contains: palavra, mode: 'insensitive' } },
+            { DS_SLUG: { contains: semAcento } },
+            {
+              PRODUTOS_CATEGORIA: {
+                some: {
+                  CATEGORIA: {
+                    OR: [
+                      { DS_SLUG: { contains: semAcento } },
+                      { NM_CATEGORIA: { contains: palavra, mode: 'insensitive' } },
+                    ],
+                  },
+                },
+              },
             },
-          },
-        ],
-      }));
+          ],
+        };
+      });
     }
 
     const [produtos, total] = await this.prismaService.$transaction([

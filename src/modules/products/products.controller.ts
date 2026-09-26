@@ -37,8 +37,7 @@ export class ProductsController {
       const result = await this.productsService.listaCategorias();
       return respondeComCache(res, result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -59,8 +58,7 @@ export class ProductsController {
       );
       return respondeComCache(res, result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -81,8 +79,7 @@ export class ProductsController {
       );
       return respondeComCache(res, result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -95,8 +92,7 @@ export class ProductsController {
       const result = await this.productsService.buscaProdutoPorSlug(slug);
       return respondeComCache(res, result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 }

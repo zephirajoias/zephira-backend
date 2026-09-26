@@ -42,8 +42,7 @@ export class ProdutosController {
       );
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -58,8 +57,7 @@ export class ProdutosController {
       const result = await this.produtosService.createProduto(dto, files);
       return res.status(201).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -73,8 +71,7 @@ export class ProdutosController {
       const result = await this.produtosService.editaVariacao(dto);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -88,8 +85,7 @@ export class ProdutosController {
       const result = await this.produtosService.deletaVariacao(cd_variacao);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -103,8 +99,7 @@ export class ProdutosController {
       const result = await this.produtosService.deleteImagemProduto(cd_imagem);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -123,8 +118,7 @@ export class ProdutosController {
       );
       return res.status(201).send(response);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -143,8 +137,7 @@ export class ProdutosController {
       const result = await this.produtosService.updateProduto(cd_produto, dto);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -157,8 +150,7 @@ export class ProdutosController {
       const result = await this.produtosService.deletaProduto(cd_produto);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -178,8 +170,7 @@ export class ProdutosController {
       );
       return res.status(201).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -196,8 +187,7 @@ export class ProdutosController {
       );
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 }

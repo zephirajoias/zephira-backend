@@ -26,8 +26,7 @@ export class ConfiguracoesController {
       const result = await this.configuracoesService.getConfiguracoesGerais();
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -41,8 +40,7 @@ export class ConfiguracoesController {
         await this.configuracoesService.updateConfiguracoesGerais(dto);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -59,8 +57,7 @@ export class ConfiguracoesController {
       );
       return res.status(201).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -77,8 +74,7 @@ export class ConfiguracoesController {
       );
       return res.status(201).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 }

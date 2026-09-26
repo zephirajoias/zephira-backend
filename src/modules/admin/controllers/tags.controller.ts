@@ -27,8 +27,7 @@ export class TagsController {
       const result = await this.tagsService.listaTags();
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -41,8 +40,7 @@ export class TagsController {
       const result = await this.tagsService.createTag(dto);
       return res.status(201).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -56,8 +54,7 @@ export class TagsController {
       const result = await this.tagsService.updateTag(id, dto);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -70,8 +67,7 @@ export class TagsController {
       const result = await this.tagsService.deleteTag(id);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -88,8 +84,7 @@ export class TagsController {
       );
       return res.status(201).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -106,8 +101,7 @@ export class TagsController {
       );
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 }

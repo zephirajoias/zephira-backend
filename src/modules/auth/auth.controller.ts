@@ -27,8 +27,7 @@ export class AuthController {
 
       return res.status(201).json(tokenData);
     } catch (err) {
-      console.log(err);
-      return res.status(409).json(err);
+      throw err;
     }
   }
 

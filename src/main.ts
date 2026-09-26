@@ -1,3 +1,4 @@
+import { FiltroErros } from './common/filtro-erros';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -15,6 +16,8 @@ async function bootstrap() {
   if (saltosProxy > 0) {
     app.set('trust proxy', saltosProxy);
   }
+
+  app.useGlobalFilters(new FiltroErros());
 
   app.useGlobalPipes(
     new ValidationPipe({

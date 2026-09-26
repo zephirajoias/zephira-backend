@@ -30,8 +30,7 @@ export class CategoriasController {
       const result = await this.categoriasService.buscaTodasCategorias();
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -41,8 +40,7 @@ export class CategoriasController {
       const result = await this.categoriasService.categoriasPainel();
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -52,8 +50,7 @@ export class CategoriasController {
       const result = await this.categoriasService.categoriaDetalhes();
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -69,8 +66,7 @@ export class CategoriasController {
       const result = await this.categoriasService.createCategoria(dto, file);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -84,8 +80,7 @@ export class CategoriasController {
       const result = await this.categoriasService.updateCategoria(dto, id);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 
@@ -98,8 +93,7 @@ export class CategoriasController {
       const result = await this.categoriasService.deleteCategoria(id);
       return res.status(200).send(result);
     } catch (err) {
-      console.log(err);
-      return res.status(409).send(err);
+      throw err;
     }
   }
 }
