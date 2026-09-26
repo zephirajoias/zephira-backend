@@ -1,3 +1,4 @@
+import { UpdateProdutoDto } from '../dto/update-produto.dto';
 import {
   Body,
   Controller,
@@ -131,7 +132,7 @@ export class ProdutosController {
   async updateProduto(
     @Res() res: Response,
     @Param('cd_produto') cd_produto: number,
-    @Body() dto: any,
+    @Body() dto: UpdateProdutoDto,
   ): Promise<any> {
     try {
       const result = await this.produtosService.updateProduto(cd_produto, dto);

@@ -1,3 +1,4 @@
+import { gerarSlug } from 'src/common/slug';
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/services/prisma.service';
 import { supabaseAdmin } from '../../../common/supabase/supabase.provider';
@@ -129,7 +130,9 @@ WHERE
       const categoria = await this.prismaService.cATEGORIA.create({
         data: {
           NM_CATEGORIA: dto.NM_CATEGORIA,
-          DS_SLUG: dto.DS_SLUG,
+          // Limpa o que foi digitado ("Aço Inox" -> "aco-inox") sem trocar
+          // a escolha: o menu da loja depende desses endereços.
+          DS_SLUG: gerarSlug(dto.DS_SLUG || dto.NM_CATEGORIA),
           DS_URL_IMAGEM: publicUrl, // Será null se não houver arquivo
           SN_ATIVO: Number(dto.SN_ATIVO ?? 1),
           CD_CATEGORIA_PAI: Number(dto.CD_CATEGORIA_PAI) || null,
@@ -159,7 +162,7 @@ WHERE
       },
       data: {
         NM_CATEGORIA: dto.NM_CATEGORIA,
-        DS_SLUG: dto.DS_SLUG,
+        DS_SLUG: dto.DS_SLUG ? gerarSlug(dto.DS_SLUG) : undefined,
       },
       select: {
         CD_CATEGORIA: true,

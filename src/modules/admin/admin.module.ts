@@ -1,3 +1,4 @@
+import { EmailService } from 'src/common/email/email.service';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
@@ -48,6 +49,7 @@ import { GoogleAdminStrategy } from './strategies/google-admin.strategy';
     TagsController,
   ],
   providers: [
+    EmailService,
     AdminService,
     AdminJwtStrategy,
     GoogleAdminStrategy,

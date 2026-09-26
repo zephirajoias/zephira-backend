@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/services/prisma.service';
+import { EmailService } from 'src/common/email/email.service';
 import { acertarEstoqueDoPedido } from 'src/common/estoque-pedido';
 import { SuperFreteService } from 'src/modules/loja/services/superfrete.service';
 import { UpdatePedidoStatusDto } from '../dto/update-pedido-status.dto';
@@ -13,6 +14,7 @@ export class PedidosService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly superFreteService: SuperFreteService,
+    private readonly emailService: EmailService,
   ) {}
 
   async listaPedidos(page: number, limit: number): Promise<any> {
@@ -165,6 +167,7 @@ export class PedidosService {
           TS_ATUALIZACAO: new Date(),
         },
       });
+      void this.emailService.avisarPedido(idPedido, 'enviado', etiqueta.trackingCode);
     }
 
     return etiqueta;

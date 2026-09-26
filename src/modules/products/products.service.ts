@@ -44,6 +44,16 @@ export class ProductsService {
                     OR: [
                       { DS_SLUG: { contains: semAcento } },
                       { NM_CATEGORIA: { contains: palavra, mode: 'insensitive' } },
+                      // A peça fica na subcategoria (Prata, embaixo de Anel):
+                      // "anel" precisa olhar a categoria de cima.
+                      {
+                        CATEGORIA: {
+                          OR: [
+                            { DS_SLUG: { contains: semAcento } },
+                            { NM_CATEGORIA: { contains: palavra, mode: 'insensitive' } },
+                          ],
+                        },
+                      },
                     ],
                   },
                 },

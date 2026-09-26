@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
 import { STATUS_PEDIDO } from '@prisma/client';
 import { PrismaService } from 'src/prisma/services/prisma.service';
+import { EmailService } from 'src/common/email/email.service';
 import { acertarEstoqueDoPedido } from 'src/common/estoque-pedido';
 
 interface ItemPreferencia {
@@ -40,7 +41,10 @@ export class PagamentoService {
   private readonly isConfigured: boolean;
   private readonly isSandbox: boolean;
 
-  constructor(private readonly prismaService: PrismaService) {
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly emailService: EmailService,
+  ) {
     const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
     this.isConfigured = Boolean(accessToken);
     this.isSandbox = process.env.MERCADO_PAGO_SANDBOX !== 'false';
@@ -174,6 +178,10 @@ export class PagamentoService {
         `Pedido #${cdPedido} mudou durante o webhook (payment ${paymentId}); aviso ignorado.`,
       );
       return;
+    }
+
+    if (novoStatus === 'PAGO' && pedido.TP_STATUS !== 'PAGO') {
+      void this.emailService.avisarPedido(cdPedido, 'pago');
     }
 
     this.logger.log(

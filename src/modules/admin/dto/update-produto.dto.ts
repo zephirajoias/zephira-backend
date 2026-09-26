@@ -1,9 +1,42 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { Type } from 'class-transformer';
-import { IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
-import { CreateProdutoDto, CreateVariacaoDto } from './create-produto.dto';
+import {
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
+import { CreateVariacaoDto } from './create-produto.dto';
 
-export class UpdateProdutoDto extends PartialType(CreateProdutoDto) {}
+// Edição de produto (PUT admin/produtos/:id). Antes a rota aceitava
+// qualquer corpo. Descrição pode ir vazia, como sempre pôde; campo vazio ou
+// null é ignorado pelo serviço.
+export class UpdateProdutoDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  NM_PRODUTO?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  DS_DESCRICAO?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  VL_PRECO?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  CD_CATEGORIA?: number;
+}
 
 export class UpdateVariacaoDto extends PartialType(CreateVariacaoDto) {
   // CD_VARIACAO é um ID numérico (o service faz Number(dto.CD_VARIACAO)),

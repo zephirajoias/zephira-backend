@@ -1,3 +1,4 @@
+import { EmailService } from 'src/common/email/email.service';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { EnderecosController } from './controllers/enderecos.controller';
@@ -22,6 +23,7 @@ import { SuperFreteService } from './services/superfrete.service';
     FreteController,
   ],
   providers: [
+    EmailService,
     EnderecosService,
     PedidosService,
     PerfilService,

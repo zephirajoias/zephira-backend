@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { EmailService } from 'src/common/email/email.service';
 import { cancelarSePendente } from 'src/common/estoque-pedido';
 import { PrismaService } from 'src/prisma/services/prisma.service';
 import { CheckoutDto } from '../dto/checkout.dto';
@@ -19,6 +20,7 @@ export class PedidosService {
     private readonly prismaService: PrismaService,
     private readonly pagamentoService: PagamentoService,
     private readonly superFreteService: SuperFreteService,
+    private readonly emailService: EmailService,
   ) {}
 
   async checkout(cd_usuario: number, dto: CheckoutDto): Promise<any> {
@@ -267,6 +269,8 @@ export class PedidosService {
         );
       }
     }
+
+    void this.emailService.avisarPedido(pedido.CD_PEDIDO, 'recebido');
 
     return { ...pedido, checkoutUrl };
   }
