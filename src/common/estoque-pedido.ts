@@ -40,3 +40,25 @@ export async function acertarEstoqueDoPedido(
     });
   }
 }
+
+/**
+ * Cancela o pedido só se ele ainda estiver PENDENTE, devolvendo as peças.
+ * Retorna false se outro processo (um webhook, por exemplo) mudou o status
+ * antes.
+ */
+export async function cancelarSePendente(
+  prisma: {
+    $transaction: <T>(fn: (tx: Prisma.TransactionClient) => Promise<T>) => Promise<T>;
+  },
+  cdPedido: number,
+): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.pEDIDOS.updateMany({
+      where: { CD_PEDIDO: cdPedido, TP_STATUS: 'PENDENTE' },
+      data: { TP_STATUS: 'CANCELADO', TS_ATUALIZACAO: new Date() },
+    });
+    if (count === 0) return false;
+    await acertarEstoqueDoPedido(tx, cdPedido, 'PENDENTE', 'CANCELADO');
+    return true;
+  });
+}

@@ -130,6 +130,16 @@ export class PagamentoService {
       return;
     }
 
+    // Só aceita "aprovado" se o valor pago cobre o total do pedido. Um
+    // pagamento menor (preferência adulterada, por exemplo) não vira PAGO.
+    const valorPago = Number(dadosPagamento.transaction_amount ?? 0);
+    if (novoStatus === 'PAGO' && valorPago + 0.01 < Number(pedido.VL_TOTAL)) {
+      this.logger.error(
+        `Pagamento ${paymentId} aprovado com R$ ${valorPago}, mas o pedido #${cdPedido} custa R$ ${pedido.VL_TOTAL}. Pedido NÃO marcado como pago; conferir no Mercado Pago.`,
+      );
+      return;
+    }
+
     // Pedido já pago (ou mais adiante) não volta pra PENDENTE/CANCELADO por
     // causa do aviso atrasado de uma tentativa de pagamento que falhou.
     if (

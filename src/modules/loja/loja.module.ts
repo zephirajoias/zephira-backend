@@ -7,6 +7,7 @@ import { PedidosController } from './controllers/pedidos.controller';
 import { PerfilController } from './controllers/perfil.controller';
 import { EnderecosService } from './services/enderecos.service';
 import { PagamentoService } from './services/pagamento.service';
+import { PedidosExpiradosService } from './services/pedidos-expirados.service';
 import { PedidosService } from './services/pedidos.service';
 import { PerfilService } from './services/perfil.service';
 import { SuperFreteService } from './services/superfrete.service';
@@ -25,6 +26,7 @@ import { SuperFreteService } from './services/superfrete.service';
     PedidosService,
     PerfilService,
     PagamentoService,
+    PedidosExpiradosService,
     SuperFreteService,
   ],
   exports: [SuperFreteService],

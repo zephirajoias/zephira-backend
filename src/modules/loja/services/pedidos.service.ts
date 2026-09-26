@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { cancelarSePendente } from 'src/common/estoque-pedido';
 import { PrismaService } from 'src/prisma/services/prisma.service';
 import { CheckoutDto } from '../dto/checkout.dto';
 import { PagamentoService } from './pagamento.service';
@@ -34,6 +35,18 @@ export class PedidosService {
       throw new ForbiddenException(
         'Endereço inválido ou não pertence a você.',
       );
+    }
+
+    // O carrinho só é esvaziado depois do pagamento. Se o cliente desistiu no
+    // Mercado Pago e está finalizando de novo, o pedido pendente anterior é
+    // cancelado agora e devolve as peças; senão uma peça única daria
+    // "estoque insuficiente" na segunda tentativa.
+    const pendentesAnteriores = await this.prismaService.pEDIDOS.findMany({
+      where: { CD_USUARIO: cd_usuario, TP_STATUS: 'PENDENTE' },
+      select: { CD_PEDIDO: true },
+    });
+    for (const { CD_PEDIDO } of pendentesAnteriores) {
+      await cancelarSePendente(this.prismaService, CD_PEDIDO);
     }
 
     const cdVariacoes = dto.itens.map((item) => item.CD_VARIACAO);

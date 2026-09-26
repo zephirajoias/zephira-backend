@@ -24,7 +24,22 @@ export class ProductsService {
     }
 
     if (busca) {
-      where.NM_PRODUTO = { contains: busca, mode: 'insensitive' };
+      // Cada palavra precisa aparecer (em qualquer ordem). Além do nome,
+      // procura no slug, que não tem acento: assim "aco" acha "Aço".
+      const palavras = busca.trim().split(/\s+/).filter(Boolean).slice(0, 6);
+      where.AND = palavras.map((palavra) => ({
+        OR: [
+          { NM_PRODUTO: { contains: palavra, mode: 'insensitive' } },
+          {
+            DS_SLUG: {
+              contains: palavra
+                .normalize('NFD')
+                .replace(/[̀-ͯ]/g, '')
+                .toLowerCase(),
+            },
+          },
+        ],
+      }));
     }
 
     const [produtos, total] = await this.prismaService.$transaction([

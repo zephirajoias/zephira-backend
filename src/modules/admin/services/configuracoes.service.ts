@@ -92,9 +92,24 @@ export class ConfiguracoesService {
   async getConfiguracoesPublicas(): Promise<any> {
     const config = await this.prismaService.cONFIGURACOES_LOJA.findUnique({
       where: { CD_CONFIGURACAO: 1 },
-      select: { NM_LOJA: true, DS_URL_LOGO: true, DS_URL_FAVICON: true },
+      select: {
+        NM_LOJA: true,
+        DS_URL_LOGO: true,
+        DS_URL_FAVICON: true,
+        // Contato aparece no rodapé e nas páginas institucionais da loja.
+        NR_TELEFONE: true,
+        DS_EMAIL_SUPORTE: true,
+      },
     });
 
-    return config ?? { NM_LOJA: null, DS_URL_LOGO: null, DS_URL_FAVICON: null };
+    return (
+      config ?? {
+        NM_LOJA: null,
+        DS_URL_LOGO: null,
+        DS_URL_FAVICON: null,
+        NR_TELEFONE: null,
+        DS_EMAIL_SUPORTE: null,
+      }
+    );
   }
 }

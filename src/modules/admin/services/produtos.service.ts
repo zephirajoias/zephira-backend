@@ -6,6 +6,7 @@ import {
 import sharp from 'sharp';
 import { supabaseAdmin } from 'src/common/supabase/supabase.provider';
 import { PrismaService } from 'src/prisma/services/prisma.service';
+import { gerarSlugUnicoProduto } from 'src/common/slug';
 import { CreateProdutoDto, CreateVariacaoDto } from '../dto/create-produto.dto';
 import { UpdateVariacaoDto } from '../dto/update-produto.dto';
 
@@ -116,6 +117,10 @@ export class ProdutosService {
     const precoFormatado = Number(dto.VL_PRECO);
     const categoriaId = Number(dto.CD_CATEGORIA);
 
+    // Endereço gerado aqui a partir do nome (sem perder acento e sem
+    // repetir), em vez de confiar no que veio do navegador.
+    const slug = await gerarSlugUnicoProduto(this.prismaService, dto.NM_PRODUTO);
+
     // 7️⃣ TRANSAÇÃO (produto + variações)
     try {
       const produto = await this.prismaService.$transaction(async (tx: any) => {
@@ -123,7 +128,7 @@ export class ProdutosService {
         const produtoCriado = await tx.pRODUTOS.create({
           data: {
             NM_PRODUTO: dto.NM_PRODUTO,
-            DS_SLUG: dto.DS_SLUG,
+            DS_SLUG: slug,
             DS_DESCRICAO: dto.DS_DESCRICAO,
             VL_PRECO: precoFormatado,
             SN_ATIVO: 'S',
