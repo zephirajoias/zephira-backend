@@ -79,9 +79,8 @@ tem que passar por `acertarEstoqueDoPedido` (`src/common/estoque-pedido.ts`)
 na mesma transação. O webhook ignora aviso de "recusado" ou "pendente"
 chegando atrasado para um pedido que já está pago.
 
-Ponto em aberto: pedido abandonado (o cliente nunca paga) não recebe
-webhook nenhum, então essas peças continuam presas até alguém cancelar o
-pedido no admin.
+Pedido abandonado (o cliente nunca paga, não chega webhook) é cancelado
+sozinho depois de 24h: ver "Pedido pendente".
 
 ## Cache do catálogo público
 
@@ -98,6 +97,41 @@ rotas não servem pra `localhost` apontando pra API de produção. Preço e
 produto novo levam até ~1min pra aparecer; o checkout confere o estoque
 direto no banco, então não é afetado. Nunca aplicar `respondeComCache` em
 rota com dado por usuário.
+
+## Erros da API
+
+Todo erro passa pelo filtro global `src/common/filtro-erros.ts`. Controller
+**não** devolve `res.status(409).send(err)` (era o padrão antigo, que vazava
+detalhe do banco e fazia tudo parecer "conflito"): no `catch`, só `throw
+err`. HttpException sai com o próprio status e corpo (os fronts leem
+`message`), erro conhecido do Prisma vira 404/409 em português, e o resto
+vira 500 genérico com o detalhe no log.
+
+## Slug de produto e categoria
+
+Gerado/limpo no backend (`src/common/slug.ts`), não confiar no que vem do
+navegador. Produto: a partir do nome, único (`-2`, `-3`...). Categoria:
+o admin digita, o backend só limpa (acento, espaço), porque o menu da loja
+depende desses endereços.
+
+## E-mails pro cliente
+
+`src/common/email/email.service.ts`, via Resend (API HTTP, sem SDK).
+Desligado enquanto `RESEND_API_KEY` não existir. Dispara em: pedido criado,
+webhook marcando PAGO e compra da etiqueta (com o rastreio). Nunca lança
+erro. O domínio do remetente (`EMAIL_REMETENTE`, padrão
+`pedidos@zephirajoias.com.br`) precisa estar verificado no Resend: o DNS da
+zephirajoias.com.br hoje declara que **não envia e-mail** (`v=spf1 -all`,
+DMARC `p=reject`, MX nulo), então sem os registros do Resend tudo cai.
+
+## Pedido pendente
+
+`PedidosExpiradosService` cancela, a cada 30 min, pedido PENDENTE com mais
+de 24h (devolve estoque). Ao criar pedido novo, os PENDENTES anteriores do
+mesmo cliente são cancelados na hora: o carrinho da loja só esvazia depois
+do pagamento, então quem desiste no Mercado Pago e finaliza de novo não
+pode travar a própria peça. Webhook só marca PAGO se o valor pago cobre o
+total.
 
 ## Upload de imagem (padrão usado em todo lugar)
 
@@ -169,7 +203,9 @@ um contador único pra loja inteira), `JWT_PRIVATE_KEY`/`JWT_PUBLIC_KEY`
 que só cai nos arquivos de `keys/` quando a variável não existe).
 Opcionais: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
 `GOOGLE_CALLBACK_URL_ADMIN`, `GOOGLE_CALLBACK_URL_USER` (sem elas o login
-com Google fica desligado e o resto sobe normal). `GIT_SHA` vem do deploy.
+com Google fica desligado e o resto sobe normal). `GIT_SHA` vem do deploy. E-mail: `RESEND_API_KEY` (sem ela, nenhum e-mail
+sai) e `EMAIL_REMETENTE` (opcional). `CANCELAR_PEDIDOS_EXPIRADOS=false`
+desliga o cancelamento automático de pendentes.
 
 ## Deploy (VPS da loja)
 
@@ -229,3 +265,8 @@ mexer nessa stack nem nas portas dela (5678, 8080).
   nenhuma está marcada como capa (40 produtos estavam assim). Cancelar
   pedido devolve o estoque.
 - **2026-09-25** — Catálogo público com `Cache-Control` pro Cloudflare.
+- **2026-09-26** — Filtro de erro global; e-mails de pedido (Resend,
+  desligado até ter chave); pendente cancela em 24h e carrinho só esvazia
+  depois do pagamento; webhook confere valor; busca por palavra (nome,
+  slug e categoria); slug gerado no backend. Migração da fase 2 escrita em
+  `prisma/sql/2026-09-26-melhorias.sql`, **ainda não aplicada**.
