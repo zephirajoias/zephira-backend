@@ -11,11 +11,13 @@ import { AuthModule } from './modules/auth/auth.module';
 import { LojaModule } from './modules/loja/loja.module';
 import { ProductsModule } from './modules/products/products.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { TelegramModule } from './modules/telegram/telegram.module';
 
 @Module({
   imports: [
     PrismaModule,
     ProductsModule,
+    TelegramModule,
     AdminModule,
     LojaModule,
     ConfigModule.forRoot({

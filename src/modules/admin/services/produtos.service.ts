@@ -151,6 +151,7 @@ export class ProdutosService {
           },
           select: {
             CD_PRODUTO: true,
+            DS_SLUG: true,
           },
         });
 

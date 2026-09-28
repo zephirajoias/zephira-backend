@@ -133,6 +133,26 @@ do pagamento, então quem desiste no Mercado Pago e finaliza de novo não
 pode travar a própria peça. Webhook só marca PAGO se o valor pago cobre o
 total.
 
+## Bot do Telegram (cadastro de peças)
+
+`src/modules/telegram`. A equipe manda as fotos da peça pro bot, escolhe a
+categoria em botões, responde nome, preço, estoque e descrição (opcional)
+e toca em Publicar: a peça entra na loja na hora, pelo mesmo
+`ProdutosService.createProduto` do admin. Álbum de fotos vira um cadastro
+só (espera 1,5s o álbum terminar); a legenda da foto vira o nome; "mesma
+categoria da anterior" agiliza lote. Preço e estoque aceitam o jeito
+brasileiro de digitar (`interpretar.ts`, com testes).
+
+- Webhook: `POST /telegram/webhook`, registrado sozinho ao subir **só com
+  `NODE_ENV=production`** (rodar local com o mesmo token apontaria o bot
+  pro localhost). O Telegram manda o segredo no cabeçalho
+  `X-Telegram-Bot-Api-Secret-Token`.
+- Acesso: só IDs em `TELEGRAM_USUARIOS_PERMITIDOS`. Quem não está recebe o
+  próprio ID pra pedir liberação.
+- Rascunho fica na memória da API: deploy no meio de um cadastro perde o
+  rascunho (a pessoa recomeça), e com mais de uma instância da API isso
+  quebraria.
+
 ## Upload de imagem (padrão usado em todo lugar)
 
 Multer (`FilesInterceptor`/`FileInterceptor`) → `sharp` processa/otimiza
@@ -206,6 +226,9 @@ Opcionais: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
 com Google fica desligado e o resto sobe normal). `GIT_SHA` vem do deploy. E-mail: `RESEND_API_KEY` (sem ela, nenhum e-mail
 sai) e `EMAIL_REMETENTE` (opcional). `CANCELAR_PEDIDOS_EXPIRADOS=false`
 desliga o cancelamento automático de pendentes.
+Telegram: `TELEGRAM_BOT_TOKEN` (do @BotFather), `TELEGRAM_WEBHOOK_SECRET`
+(gerado na VPS) e `TELEGRAM_USUARIOS_PERMITIDOS` (IDs separados por
+vírgula). Sem token ou segredo, o bot fica desligado.
 
 ## Deploy (VPS da loja)
 
@@ -270,3 +293,4 @@ mexer nessa stack nem nas portas dela (5678, 8080).
   depois do pagamento; webhook confere valor; busca por palavra (nome,
   slug e categoria); slug gerado no backend. Migração da fase 2 escrita em
   `prisma/sql/2026-09-26-melhorias.sql`, **ainda não aplicada**.
+- **2026-09-28** — Bot do Telegram pra cadastrar peças (publica direto).
