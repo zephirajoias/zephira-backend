@@ -315,6 +315,31 @@ export class ProdutosService {
     const precoFormatado = dto.VL_PRECO ? Number(dto.VL_PRECO) : undefined;
     const categoriaId = dto.CD_CATEGORIA ? Number(dto.CD_CATEGORIA) : undefined;
 
+    // Preço promocional: a loja mostra "de R$ X por R$ Y" e o selo de
+    // desconto, e o checkout cobra esse preço. Não veio = não mexe;
+    // vazio/0/null = tira a promoção.
+    let promocional: number | null | undefined;
+    if (dto.VL_PRECO_PROMOCIONAL !== undefined) {
+      promocional = Number(dto.VL_PRECO_PROMOCIONAL) > 0 ? Number(dto.VL_PRECO_PROMOCIONAL) : null;
+      if (promocional !== null) {
+        const precoNormal =
+          precoFormatado ??
+          Number(
+            (
+              await this.prismaService.pRODUTOS.findUnique({
+                where: { CD_PRODUTO: idProduto },
+                select: { VL_PRECO: true },
+              })
+            )?.VL_PRECO,
+          );
+        if (!(promocional < precoNormal)) {
+          throw new BadRequestException(
+            'O preço promocional precisa ser menor que o preço normal.',
+          );
+        }
+      }
+    }
+
     return await this.prismaService.$transaction(async (tx: any) => {
       const produto = await tx.pRODUTOS.update({
         where: { CD_PRODUTO: idProduto }, // Usa a variável limpa
@@ -322,6 +347,7 @@ export class ProdutosService {
           NM_PRODUTO: dto.NM_PRODUTO,
           DS_DESCRICAO: dto.DS_DESCRICAO,
           VL_PRECO: precoFormatado,
+          VL_PRECO_PROMOCIONAL: promocional,
           TS_ATUALIZACAO: new Date(),
         },
       });

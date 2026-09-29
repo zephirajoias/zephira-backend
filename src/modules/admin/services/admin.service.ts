@@ -799,6 +799,7 @@ ORDER BY
     c."CD_CATEGORIA",
     c."NM_CATEGORIA",
     p."VL_PRECO",
+    p."VL_PRECO_PROMOCIONAL",
     COALESCE(vp."QT_ESTOQUE", 0) AS "QT_ESTOQUE",
     CASE
         WHEN COALESCE(vp."QT_ESTOQUE", 0) <= 0 THEN 'Esgotado'

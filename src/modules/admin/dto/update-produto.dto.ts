@@ -36,6 +36,13 @@ export class UpdateProdutoDto {
   @Type(() => Number)
   @IsInt()
   CD_CATEGORIA?: number;
+
+  // null ou 0 tira a promoção (ver ProdutosService.updateProduto).
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  VL_PRECO_PROMOCIONAL?: number | null;
 }
 
 export class UpdateVariacaoDto extends PartialType(CreateVariacaoDto) {
