@@ -133,6 +133,16 @@ do pagamento, então quem desiste no Mercado Pago e finaliza de novo não
 pode travar a própria peça. Webhook só marca PAGO se o valor pago cobre o
 total.
 
+## Descontão (promoção em massa)
+
+`POST`/`DELETE admin/produtos/promocao-em-massa` (`produtos.controller.ts`,
+antes das rotas curinga `produtos/:cd_produto`). Aplica ou tira um % de
+desconto em `VL_PRECO_PROMOCIONAL` de várias peças de uma vez (todas as
+ativas, ou de uma categoria), sempre recalculando a partir de `VL_PRECO` —
+rodar de novo com outro % substitui, não acumula. Usa `$executeRaw`
+porque o Prisma não faz `UPDATE` com valor de outra coluna via
+`updateMany`. Tela: `apps/admin` → Promoções → Descontão.
+
 ## Bot do Telegram (cadastro de peças)
 
 `src/modules/telegram`. A equipe manda as fotos da peça pro bot, escolhe a
@@ -294,3 +304,5 @@ mexer nessa stack nem nas portas dela (5678, 8080).
   slug e categoria); slug gerado no backend. Migração da fase 2 escrita em
   `prisma/sql/2026-09-26-melhorias.sql`, **ainda não aplicada**.
 - **2026-09-28** — Bot do Telegram pra cadastrar peças (publica direto).
+- **2026-09-30** — Descontão: desconto em massa (toda a loja ou por
+  categoria) em `VL_PRECO_PROMOCIONAL`.
