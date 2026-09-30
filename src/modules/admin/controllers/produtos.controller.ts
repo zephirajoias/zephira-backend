@@ -1,4 +1,5 @@
 import { UpdateProdutoDto } from '../dto/update-produto.dto';
+import { PromocaoEmMassaDto } from '../dto/promocao-em-massa.dto';
 import {
   Body,
   Controller,
@@ -98,6 +99,38 @@ export class ProdutosController {
   ): Promise<any> {
     try {
       const result = await this.produtosService.deleteImagemProduto(cd_imagem);
+      return res.status(200).send(result);
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  // 👇 Movido para cima: Escapa do @Put/@Delete('produtos/:cd_produto')
+  @Post('produtos/promocao-em-massa')
+  async aplicarPromocaoEmMassa(
+    @Res() res: Response,
+    @Body() dto: PromocaoEmMassaDto,
+  ): Promise<any> {
+    try {
+      const result = await this.produtosService.aplicarPromocaoEmMassa(
+        dto.percentual,
+        dto.CD_CATEGORIA,
+      );
+      return res.status(200).send(result);
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  @Delete('produtos/promocao-em-massa')
+  async removerPromocaoEmMassa(
+    @Res() res: Response,
+    @Query('cd_categoria') cd_categoria?: string,
+  ): Promise<any> {
+    try {
+      const result = await this.produtosService.removerPromocaoEmMassa(
+        cd_categoria ? Number(cd_categoria) : undefined,
+      );
       return res.status(200).send(result);
     } catch (err) {
       throw err;

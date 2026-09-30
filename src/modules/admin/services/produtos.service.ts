@@ -461,4 +461,63 @@ export class ProdutosService {
       });
     });
   }
+
+  /**
+   * "Descontão": aplica um % de desconto em cima do preço normal de várias
+   * peças de uma vez (todas as ativas, ou só de uma categoria), preenchendo
+   * VL_PRECO_PROMOCIONAL. Sempre recalcula a partir de VL_PRECO — rodar de
+   * novo com outro percentual substitui o desconto anterior, não acumula.
+   * Precisa de SQL cru: o Prisma não faz UPDATE com valor de outra coluna
+   * (`SET x = y * 0.8`) via updateMany.
+   */
+  async aplicarPromocaoEmMassa(
+    percentual: number,
+    categoriaId?: number,
+  ): Promise<{ produtosAfetados: number }> {
+    if (!Number.isFinite(percentual) || percentual <= 0 || percentual > 90) {
+      throw new BadRequestException(
+        'O desconto precisa ser maior que 0% e no máximo 90%.',
+      );
+    }
+
+    const fator = 1 - percentual / 100;
+    const afetados = categoriaId
+      ? await this.prismaService.$executeRaw`
+          UPDATE "Zephira"."PRODUTOS"
+             SET "VL_PRECO_PROMOCIONAL" = ROUND("VL_PRECO" * ${fator}, 2),
+                 "TS_ATUALIZACAO" = now()
+           WHERE "SN_ATIVO" = 'S'
+             AND "CD_PRODUTO" IN (
+               SELECT "CD_PRODUTO" FROM "Zephira"."PRODUTOS_CATEGORIA"
+                WHERE "CD_CATEGORIA" = ${categoriaId}
+             )`
+      : await this.prismaService.$executeRaw`
+          UPDATE "Zephira"."PRODUTOS"
+             SET "VL_PRECO_PROMOCIONAL" = ROUND("VL_PRECO" * ${fator}, 2),
+                 "TS_ATUALIZACAO" = now()
+           WHERE "SN_ATIVO" = 'S'`;
+
+    return { produtosAfetados: afetados };
+  }
+
+  /** Encerra o descontão: limpa o preço promocional (todas, ou por categoria). */
+  async removerPromocaoEmMassa(
+    categoriaId?: number,
+  ): Promise<{ produtosAfetados: number }> {
+    const afetados = categoriaId
+      ? await this.prismaService.$executeRaw`
+          UPDATE "Zephira"."PRODUTOS"
+             SET "VL_PRECO_PROMOCIONAL" = NULL, "TS_ATUALIZACAO" = now()
+           WHERE "VL_PRECO_PROMOCIONAL" IS NOT NULL
+             AND "CD_PRODUTO" IN (
+               SELECT "CD_PRODUTO" FROM "Zephira"."PRODUTOS_CATEGORIA"
+                WHERE "CD_CATEGORIA" = ${categoriaId}
+             )`
+      : await this.prismaService.$executeRaw`
+          UPDATE "Zephira"."PRODUTOS"
+             SET "VL_PRECO_PROMOCIONAL" = NULL, "TS_ATUALIZACAO" = now()
+           WHERE "VL_PRECO_PROMOCIONAL" IS NOT NULL`;
+
+    return { produtosAfetados: afetados };
+  }
 }
