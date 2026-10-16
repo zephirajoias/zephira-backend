@@ -133,6 +133,23 @@ do pagamento, então quem desiste no Mercado Pago e finaliza de novo não
 pode travar a própria peça. Webhook só marca PAGO se o valor pago cobre o
 total.
 
+## Foto por variação (cor/tamanho)
+
+`IMAGENS_PRODUTO.CD_VARIACAO` (nulo = foto geral do produto; preenchido =
+foto só dessa variação). Rotas: `GET`/`POST
+admin/produtos/variacao/:cd_variacao/imagens` (listar/subir — mesmo
+`processImageBuffer`/bucket das fotos gerais); apagar continua pela rota
+genérica `DELETE admin/produtos/imagens/:cd_imagem`, que funciona pra
+qualquer foto. **Foto de variação nunca vira capa do produto**:
+`setImagemPrincipal` recusa (400) se a foto tiver `CD_VARIACAO`, e toda
+consulta pública que escolhe a capa (listagem, "mais vendido", inventário
+do admin) filtra `CD_VARIACAO IS NULL`. `buscaProdutoPorSlug` devolve
+todas as fotos (gerais + de cada variação) com o campo `CD_VARIACAO`; a
+loja (`Produto.tsx`) filtra pela variação escolhida e troca a galeria pra
+essas fotos, caindo nas gerais se a variação não tiver foto própria.
+Cadastrar uma cor é igual a cadastrar um tamanho (mesmo campo de texto em
+`VARIACOES_PRODUTO.DS_TAMANHO`) — não existe uma coluna "cor" separada.
+
 ## Descontão (promoção em massa)
 
 `POST`/`DELETE admin/produtos/promocao-em-massa` (`produtos.controller.ts`,
@@ -306,3 +323,7 @@ mexer nessa stack nem nas portas dela (5678, 8080).
 - **2026-09-28** — Bot do Telegram pra cadastrar peças (publica direto).
 - **2026-09-30** — Descontão: desconto em massa (toda a loja ou por
   categoria) em `VL_PRECO_PROMOCIONAL`.
+- **2026-10-16** — Sugestão de tamanho também pra Pulseira (15-21cm).
+  Foto por variação: cada cor/tamanho pode ter fotos próprias, que a
+  loja mostra no lugar das fotos gerais quando aquela variação é
+  escolhida.
