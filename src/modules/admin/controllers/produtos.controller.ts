@@ -91,6 +91,38 @@ export class ProdutosController {
     }
   }
 
+  // 👇 Movido para cima: Escapa do @Put('produtos/variacao') / @Delete('produtos/variacao/:cd_variacao')
+  @Get('produtos/variacao/:cd_variacao/imagens')
+  async listaImagensVariacao(
+    @Res() res: Response,
+    @Param('cd_variacao') cd_variacao: number,
+  ): Promise<any> {
+    try {
+      const result = await this.produtosService.listaImagensVariacao(cd_variacao);
+      return res.status(200).send(result);
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  @Post('produtos/variacao/:cd_variacao/imagens')
+  @UseInterceptors(FilesInterceptor('files'))
+  async uploadImagensVariacao(
+    @Res() res: Response,
+    @Param('cd_variacao') cd_variacao: number,
+    @UploadedFiles() files: Express.Multer.File[],
+  ): Promise<any> {
+    try {
+      const result = await this.produtosService.uploadImagensVariacao(
+        cd_variacao,
+        files,
+      );
+      return res.status(201).send(result);
+    } catch (err) {
+      throw err;
+    }
+  }
+
   // 👇 Movido para cima: Escapa do @Delete('produtos/:cd_produto')
   @Delete('produtos/imagens/:cd_imagem')
   async deleteImagem(

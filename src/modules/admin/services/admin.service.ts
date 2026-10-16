@@ -675,7 +675,7 @@ LIMIT 5;`;
     P."NM_PRODUTO",
     SUM(IP."QT_ITEM") AS qt_total_vendida,
     (SELECT IMG."DS_URL" FROM "Zephira"."IMAGENS_PRODUTO" IMG
-      WHERE IMG."CD_PRODUTO" = P."CD_PRODUTO"
+      WHERE IMG."CD_PRODUTO" = P."CD_PRODUTO" AND IMG."CD_VARIACAO" IS NULL
       ORDER BY IMG."SN_PRINCIPAL" DESC, IMG."NR_ORDEM" ASC
       LIMIT 1) AS "DS_IMAGEM_THUMB"
 FROM
@@ -708,24 +708,30 @@ LIMIT
         qt_estoque: number;
         ds_imagem_thumb: string;
       }>
-    >`SELECT 
+    >`SELECT
 	P."NM_PRODUTO",
 	VP."CD_SKU",
 	VP."DS_TAMANHO",
 	VP."QT_ESTOQUE",
-	IMG."DS_URL" as "DS_IMAGEM_THUMB"
+	-- Foto da própria variação (ex: a cor "Azul claro") se tiver; senão a
+	-- capa geral do produto. Antes isso juntava IMAGENS_PRODUTO pelo produto
+	-- sem LIMIT, o que duplicava a linha pra cada foto que o produto tinha.
+	COALESCE(
+		(SELECT img."DS_URL" FROM "Zephira"."IMAGENS_PRODUTO" img
+		  WHERE img."CD_VARIACAO" = VP."CD_VARIACAO"
+		  ORDER BY img."CD_IMAGEM" ASC LIMIT 1),
+		(SELECT img."DS_URL" FROM "Zephira"."IMAGENS_PRODUTO" img
+		  WHERE img."CD_PRODUTO" = P."CD_PRODUTO" AND img."CD_VARIACAO" IS NULL
+		  ORDER BY img."SN_PRINCIPAL" DESC, img."NR_ORDEM" ASC LIMIT 1)
+	) AS "DS_IMAGEM_THUMB"
 FROM
 	"Zephira"."VARIACOES_PRODUTO" VP,
-	"Zephira"."PRODUTOS" P,
-	"Zephira"."IMAGENS_PRODUTO" IMG
+	"Zephira"."PRODUTOS" P
 WHERE
 	1=1
 	AND VP."CD_PRODUTO" = P."CD_PRODUTO"
 	AND VP."QT_ESTOQUE" <= 15
-	AND IMG."CD_PRODUTO" = P."CD_PRODUTO"
-ORDER by
-	IMG."SN_PRINCIPAL" DESC, 
-	IMG."NR_ORDEM" ASC`;
+ORDER BY VP."QT_ESTOQUE" ASC`;
 
     return estoque;
   }
@@ -787,13 +793,17 @@ ORDER BY
     p."DS_SLUG",
     vp."CD_SKU",
     (
+        -- Só as fotos gerais do produto: é o que o modal Editar Produto usa
+        -- pra gerenciar/definir capa, e foto de variação não pode ser capa.
         SELECT json_agg(json_build_object('CD_IMAGEM', img."CD_IMAGEM", 'DS_URL', img."DS_URL", 'SN_PRINCIPAL', img."SN_PRINCIPAL"))
         FROM "Zephira"."IMAGENS_PRODUTO" img
-        WHERE img."CD_PRODUTO" = p."CD_PRODUTO"
+        WHERE img."CD_PRODUTO" = p."CD_PRODUTO" AND img."CD_VARIACAO" IS NULL
     ) AS "IMAGENS",
+    -- Capa geral do produto (nunca a foto de uma variação específica, senão
+    -- a listagem mostraria a cor errada no card do produto).
     COALESCE(
-        (SELECT img."DS_URL" FROM "Zephira"."IMAGENS_PRODUTO" img WHERE img."CD_PRODUTO" = p."CD_PRODUTO" AND img."SN_PRINCIPAL" = 'S' LIMIT 1),
-        (SELECT img."DS_URL" FROM "Zephira"."IMAGENS_PRODUTO" img WHERE img."CD_PRODUTO" = p."CD_PRODUTO" LIMIT 1),
+        (SELECT img."DS_URL" FROM "Zephira"."IMAGENS_PRODUTO" img WHERE img."CD_PRODUTO" = p."CD_PRODUTO" AND img."CD_VARIACAO" IS NULL AND img."SN_PRINCIPAL" = 'S' LIMIT 1),
+        (SELECT img."DS_URL" FROM "Zephira"."IMAGENS_PRODUTO" img WHERE img."CD_PRODUTO" = p."CD_PRODUTO" AND img."CD_VARIACAO" IS NULL LIMIT 1),
         '/placeholder.png'
     ) AS ds_imagem_thumb,
     c."CD_CATEGORIA",

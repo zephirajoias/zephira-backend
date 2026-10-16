@@ -80,7 +80,9 @@ export class ProductsService {
             // Capa ('S') primeiro; se nenhuma foto estiver marcada como capa,
             // cai na primeira pela ordem. Filtrar só 'S' deixava sem foto
             // produtos que têm imagem mas nenhuma marcada (o default da
-            // coluna no banco é '0').
+            // coluna no banco é '0'). CD_VARIACAO nulo: a capa da listagem
+            // nunca é a foto de uma variação específica (cor/tamanho).
+            where: { CD_VARIACAO: null },
             orderBy: [{ SN_PRINCIPAL: 'desc' }, { NR_ORDEM: 'asc' }],
             take: 1,
             select: { DS_URL: true },
@@ -235,6 +237,7 @@ export class ProductsService {
           VL_PRECO: true,
           VL_PRECO_PROMOCIONAL: true,
           IMAGENS_PRODUTO: {
+            where: { CD_VARIACAO: null },
             orderBy: [{ SN_PRINCIPAL: 'desc' }, { NR_ORDEM: 'asc' }],
             take: 1,
             select: { DS_URL: true },

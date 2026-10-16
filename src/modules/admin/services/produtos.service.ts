@@ -419,6 +419,74 @@ export class ProdutosService {
     return uploadedImages;
   }
 
+  /** Fotos só dessa variação (ex: as fotos da cor "Azul claro" de um brinco). */
+  async listaImagensVariacao(cd_variacao: number): Promise<any[]> {
+    return this.prismaService.iMAGENS_PRODUTO.findMany({
+      where: { CD_VARIACAO: Number(cd_variacao) },
+      orderBy: { CD_IMAGEM: 'asc' },
+      select: { CD_IMAGEM: true, DS_URL: true },
+    });
+  }
+
+  /**
+   * Sobe fotos presas a uma variação (uma cor, por exemplo): a loja troca a
+   * galeria pra essas fotos quando o cliente escolhe essa variação. Mesmo
+   * processamento (sharp) e bucket das fotos gerais do produto.
+   */
+  async uploadImagensVariacao(
+    cd_variacao: number,
+    files: Express.Multer.File[],
+  ): Promise<any[]> {
+    const variacao = await this.prismaService.vARIACOES_PRODUTO.findUnique({
+      where: { CD_VARIACAO: Number(cd_variacao) },
+      select: { CD_PRODUTO: true, DS_TAMANHO: true },
+    });
+    if (!variacao) {
+      throw new BadRequestException('Variação não encontrada.');
+    }
+
+    const uploadedImages: any[] = [];
+    for (const file of files) {
+      let buffer: Buffer;
+      try {
+        buffer = await this.processImageBuffer(file);
+      } catch (err) {
+        console.error('Erro ao processar imagem:', err);
+        continue;
+      }
+
+      const slugParte = variacao.DS_TAMANHO.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const fileName = `produtos/variacao-${cd_variacao}-${slugParte}-${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`;
+
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from('imagens-produtos')
+        .upload(fileName, buffer, { contentType: 'image/jpeg', upsert: false });
+
+      if (uploadError) {
+        console.error(uploadError);
+        continue;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabaseAdmin.storage.from('imagens-produtos').getPublicUrl(fileName);
+
+      const imagem = await this.prismaService.iMAGENS_PRODUTO.create({
+        data: {
+          CD_PRODUTO: variacao.CD_PRODUTO,
+          CD_VARIACAO: Number(cd_variacao),
+          DS_URL: publicUrl,
+          SN_PRINCIPAL: 'N',
+          TS_CRIACAO: new Date(),
+        },
+      });
+
+      uploadedImages.push(imagem);
+    }
+
+    return uploadedImages;
+  }
+
   async deleteImagemProduto(cd_imagem: number): Promise<any> {
     const imagem = await this.prismaService.iMAGENS_PRODUTO.findUnique({
       where: { CD_IMAGEM: Number(cd_imagem) },
@@ -444,13 +512,24 @@ export class ProdutosService {
     cd_imagem: number,
     cd_produto: number,
   ): Promise<any> {
+    const imagem = await this.prismaService.iMAGENS_PRODUTO.findUnique({
+      where: { CD_IMAGEM: Number(cd_imagem) },
+      select: { CD_VARIACAO: true },
+    });
+    if (imagem?.CD_VARIACAO) {
+      throw new BadRequestException(
+        'Essa foto é de uma variação específica e não pode virar a capa do produto.',
+      );
+    }
+
     return await this.prismaService.$transaction(async (tx: any) => {
-      // Remove principal de todas as imagens do produto
-      // (o valor de verdade usado em todo o resto do sistema é 'S'/'N',
-      // não '1'/'0' — gravar '1' aqui deixava a imagem "principal" sem
-      // nenhuma query de leitura reconhecer ela como capa)
+      // Remove principal só das fotos gerais do produto (CD_VARIACAO nulo):
+      // a capa listada na loja nunca é uma foto de variação (cor/tamanho).
+      // O valor de verdade usado em todo o resto do sistema é 'S'/'N', não
+      // '1'/'0' — gravar '1' aqui deixava a imagem "principal" sem nenhuma
+      // query de leitura reconhecer ela como capa.
       await tx.iMAGENS_PRODUTO.updateMany({
-        where: { CD_PRODUTO: Number(cd_produto) },
+        where: { CD_PRODUTO: Number(cd_produto), CD_VARIACAO: null },
         data: { SN_PRINCIPAL: 'N' },
       });
 

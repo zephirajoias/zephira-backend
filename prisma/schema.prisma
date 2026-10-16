@@ -44,14 +44,21 @@ model ENDERECO {
 }
 
 model IMAGENS_PRODUTO {
-  CD_IMAGEM    Int       @id @default(autoincrement())
+  CD_IMAGEM    Int                 @id @default(autoincrement())
   CD_PRODUTO   Int
   DS_URL       String
-  SN_PRINCIPAL String    @default(dbgenerated("0")) @db.Char(1)
-  NR_ORDEM     Int?      @default(0)
-  TS_CRIACAO   DateTime? @default(now()) @db.Timestamptz(6)
-  PRODUTOS     PRODUTOS  @relation(fields: [CD_PRODUTO], references: [CD_PRODUTO], onDelete: Cascade, map: "fk_cd_produto")
+  SN_PRINCIPAL String              @default("N") @db.Char(1)
+  NR_ORDEM     Int?                @default(0)
+  TS_CRIACAO   DateTime?           @default(now()) @db.Timestamptz(6)
+  // Nulo = foto geral do produto. Preenchido = foto só dessa variação (ex:
+  // cada cor do brinco com a própria foto) — a loja troca a galeria pra
+  // essas fotos quando o cliente escolhe essa variação, e elas nunca viram
+  // "capa" do produto (ver setImagemPrincipal / consultas públicas).
+  CD_VARIACAO  Int?
+  PRODUTOS     PRODUTOS            @relation(fields: [CD_PRODUTO], references: [CD_PRODUTO], onDelete: Cascade, map: "fk_cd_produto")
+  VARIACOES_PRODUTO VARIACOES_PRODUTO? @relation(fields: [CD_VARIACAO], references: [CD_VARIACAO], onDelete: Cascade, map: "fk_cd_variacao_imagem")
 
+  @@index([CD_VARIACAO], map: "idx_imagens_variacao")
   @@schema("Zephira")
 }
 
@@ -165,14 +172,15 @@ model USUARIO {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model VARIACOES_PRODUTO {
-  CD_VARIACAO  Int            @id @default(autoincrement())
+  CD_VARIACAO  Int                @id @default(autoincrement())
   CD_PRODUTO   Int
-  CD_SKU       String         @unique @db.VarChar(255)
-  DS_TAMANHO   String         @db.VarChar(50)
-  QT_ESTOQUE   Int            @default(0)
-  TS_CRIACAO   DateTime?      @default(now()) @db.Timestamptz(6)
+  CD_SKU       String             @unique @db.VarChar(255)
+  DS_TAMANHO   String             @db.VarChar(50)
+  QT_ESTOQUE   Int                @default(0)
+  TS_CRIACAO   DateTime?          @default(now()) @db.Timestamptz(6)
   ITENS_PEDIDO ITENS_PEDIDO[]
-  PRODUTOS     PRODUTOS       @relation(fields: [CD_PRODUTO], references: [CD_PRODUTO], onDelete: Cascade, map: "fk_cd_produto")
+  IMAGENS_PRODUTO IMAGENS_PRODUTO[]
+  PRODUTOS     PRODUTOS           @relation(fields: [CD_PRODUTO], references: [CD_PRODUTO], onDelete: Cascade, map: "fk_cd_produto")
 
   @@index([CD_PRODUTO], map: "idx_variacoes_produto")
   @@schema("Zephira")
