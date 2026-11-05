@@ -370,6 +370,21 @@ de adicionar campo novo em qualquer tabela que endpoint público ou tela
 crítica já leem — nunca só acrescentar no select e confiar que a
 migração já rodou.**
 
+**Pegadinha nova, achada no mesmo dia**: o fallback resolve o `findFirst`/
+`findUnique` (leitura), mas um `upsert`/`update` sem `select` explícito
+tenta devolver **todas** as colunas do model pra montar o retorno —
+mesmo as que só estão em `update`/`create` por fora. Resultado: mesmo
+excluindo os campos novos do `update`, o upsert de fallback continuava
+tentando ler `VL_FRETE_GRATIS_MINIMO` etc pra responder, e quebrava de
+novo — ou seja, **nenhum** save em Configurações Gerais funcionava (nem
+nome, nem telefone, nem logo/favicon), não só os campos novos. Reportado
+por Thaís em 2026-11-05 ("não consigo mudar nada dessa página, dá
+erro"). Corrigido passando `select: CAMPOS_ESTAVEIS` em todo `upsert`/
+`update` que grava nessa tabela (fallback de `updateConfiguracoesGerais`
+e `uploadImagemMarca`). **Regra**: toda escrita Prisma numa tabela com
+campo de migração pendente precisa de `select` explícito — não só a
+leitura.
+
 ## Migrações pendentes (checar antes de assumir que um campo existe)
 
 Duas migrações estão escritas e commitadas mas **não rodaram** em

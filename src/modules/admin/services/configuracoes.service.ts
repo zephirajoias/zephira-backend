@@ -113,10 +113,15 @@ export class ConfiguracoesService {
       const dadosEstaveis = { ...dados };
       for (const campo of CAMPOS_NOVOS) delete (dadosEstaveis as any)[campo];
 
+      // select explícito é obrigatório aqui: sem ele, o upsert tenta devolver
+      // todas as colunas do model (inclusive as novas, que não existem no
+      // banco ainda) pra montar o retorno — e falha de novo mesmo só
+      // atualizando os campos estáveis.
       const salvo = await this.prismaService.cONFIGURACOES_LOJA.upsert({
         where: { CD_CONFIGURACAO: 1 },
         update: dadosEstaveis,
         create: { CD_CONFIGURACAO: 1, ...dadosEstaveis },
+        select: CAMPOS_ESTAVEIS,
       });
       return { ...salvo, _migracaoPendente: true };
     }
@@ -155,6 +160,10 @@ export class ConfiguracoesService {
 
     const campo = tipo === 'favicon' ? 'DS_URL_FAVICON' : 'DS_URL_LOGO';
 
+    // select explícito pelo mesmo motivo do fallback de
+    // updateConfiguracoesGerais: sem ele, o upsert tenta devolver as
+    // colunas novas (migração pendente) e falha mesmo só trocando a URL
+    // do logo/favicon.
     await this.prismaService.cONFIGURACOES_LOJA.upsert({
       where: { CD_CONFIGURACAO: 1 },
       update: { [campo]: publicUrl, TS_ATUALIZACAO: new Date() },
@@ -163,6 +172,7 @@ export class ConfiguracoesService {
         NM_LOJA: 'Zephira Joias',
         [campo]: publicUrl,
       },
+      select: CAMPOS_ESTAVEIS,
     });
 
     return { url: publicUrl };
