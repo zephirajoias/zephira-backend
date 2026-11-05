@@ -9,6 +9,41 @@ import { supabaseAdmin } from 'src/common/supabase/supabase.provider';
 import { PrismaService } from 'src/prisma/services/prisma.service';
 import { UpdateConfiguracoesDto } from '../dto/update-configuracoes.dto';
 
+// Campos que existem desde antes da migração de 2026-09-26 — usados como
+// fallback enquanto ela não roda em produção (ver notas abaixo).
+const CAMPOS_ESTAVEIS = {
+  NM_LOJA: true,
+  DS_EMAIL_SUPORTE: true,
+  NR_TELEFONE: true,
+  SG_MOEDA: true,
+  DS_FUSO_HORARIO: true,
+  DS_URL_LOGO: true,
+  DS_URL_FAVICON: true,
+  NM_REMETENTE: true,
+  NR_CEP_REMETENTE: true,
+  DS_ENDERECO_REMETENTE: true,
+  NR_NUMERO_REMETENTE: true,
+  NM_BAIRRO_REMETENTE: true,
+  NM_CIDADE_REMETENTE: true,
+  DS_UF_REMETENTE: true,
+  NR_PACOTE_ALTURA: true,
+  NR_PACOTE_LARGURA: true,
+  NR_PACOTE_COMPRIMENTO: true,
+  NR_PACOTE_PESO: true,
+  TS_ATUALIZACAO: true,
+} as const;
+
+// Campos que só existem depois que prisma/sql/2026-09-26-melhorias.sql
+// rodar no banco.
+const CAMPOS_NOVOS = [
+  'VL_FRETE_GRATIS_MINIMO',
+  'NR_PARCELAS_SEM_JUROS',
+  'NM_RAZAO_SOCIAL',
+  'NR_CNPJ',
+  'DS_ENDERECO_LOJA',
+  'DS_INSTAGRAM',
+] as const;
+
 @Injectable()
 export class ConfiguracoesService {
   private readonly logger = new Logger(ConfiguracoesService.name);
@@ -16,8 +51,20 @@ export class ConfiguracoesService {
   constructor(private readonly prismaService: PrismaService) {}
 
   async getConfiguracoesGerais(): Promise<any> {
-    const config = await this.prismaService.cONFIGURACOES_LOJA.findFirst();
-    return config;
+    try {
+      return await this.prismaService.cONFIGURACOES_LOJA.findFirst();
+    } catch (err) {
+      // findFirst() sem select pega todas as colunas do model do Prisma,
+      // inclusive as que a migração de 2026-09-26 ainda não criou no banco.
+      // Sem isso, a tela de Configurações Gerais nem abre enquanto a
+      // migração não roda.
+      this.logger.error(
+        `getConfiguracoesGerais com todas as colunas falhou (migração pendente?), caindo pros campos estáveis: ${err}`,
+      );
+      return this.prismaService.cONFIGURACOES_LOJA.findFirst({
+        select: CAMPOS_ESTAVEIS,
+      });
+    }
   }
 
   async updateConfiguracoesGerais(dto: UpdateConfiguracoesDto): Promise<any> {
@@ -49,11 +96,30 @@ export class ConfiguracoesService {
       TS_ATUALIZACAO: new Date(),
     };
 
-    return this.prismaService.cONFIGURACOES_LOJA.upsert({
-      where: { CD_CONFIGURACAO: 1 },
-      update: dados,
-      create: { CD_CONFIGURACAO: 1, ...dados },
-    });
+    try {
+      return await this.prismaService.cONFIGURACOES_LOJA.upsert({
+        where: { CD_CONFIGURACAO: 1 },
+        update: dados,
+        create: { CD_CONFIGURACAO: 1, ...dados },
+      });
+    } catch (err) {
+      // Enquanto a migração de 2026-09-26 não roda, essas 6 colunas não
+      // existem: salva o resto (nome, e-mail, remetente, pacote...) em vez
+      // de perder o formulário inteiro, e avisa que esses campos ficaram
+      // de fora (ver settings_geral/page.tsx, que mostra isso num toast).
+      this.logger.error(
+        `updateConfiguracoesGerais com os campos novos falhou (migração pendente?), salvando só os estáveis: ${err}`,
+      );
+      const dadosEstaveis = { ...dados };
+      for (const campo of CAMPOS_NOVOS) delete (dadosEstaveis as any)[campo];
+
+      const salvo = await this.prismaService.cONFIGURACOES_LOJA.upsert({
+        where: { CD_CONFIGURACAO: 1 },
+        update: dadosEstaveis,
+        create: { CD_CONFIGURACAO: 1, ...dadosEstaveis },
+      });
+      return { ...salvo, _migracaoPendente: true };
+    }
   }
 
   async uploadImagemMarca(
