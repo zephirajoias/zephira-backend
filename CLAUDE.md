@@ -150,6 +150,27 @@ essas fotos, caindo nas gerais se a variação não tiver foto própria.
 Cadastrar uma cor é igual a cadastrar um tamanho (mesmo campo de texto em
 `VARIACOES_PRODUTO.DS_TAMANHO`) — não existe uma coluna "cor" separada.
 
+## Páginas institucionais editáveis
+
+Tabela `PAGINA_INSTITUCIONAL` (`DS_SLUG` fixo: sobre, como-comprar,
+trocas, garantia, faq, contato). Pública: `GET
+paginas-institucionais/:slug`. Admin: `GET`/`PUT
+admin/paginas-institucionais[/:slug]`. `DS_CONTEUDO` é texto com
+formatação mínima (`## título`, `- item`, `**negrito**`,
+`[texto](link)` — ver `lib/conteudo.tsx`, duplicado em admin e
+e-commerce porque são apps/repos diferentes), **exceto** o slug `faq`,
+onde é um JSON `[{"p","r"}, ...]`. O front (apps/e-commerce) sempre tem
+um texto de reserva embutido em cada página — se a API ou a tabela
+falhar, a página nunca fica em branco, só deixa de mostrar o texto
+editado.
+
+## Foto de categoria
+
+`PUT admin/categorias/:id/imagem` troca `CATEGORIA.DS_URL_IMAGEM` (apaga
+a foto antiga do Storage). Usada hoje nos 4 círculos "Navegue por
+Categorias" da home (loja cai numa foto de banco de imagem enquanto não
+subir a própria, só pra essas 4 categorias — ver `e-commerce/src/app/page.tsx`).
+
 ## Descontão (promoção em massa)
 
 `POST`/`DELETE admin/produtos/promocao-em-massa` (`produtos.controller.ts`,
@@ -327,3 +348,33 @@ mexer nessa stack nem nas portas dela (5678, 8080).
   Foto por variação: cada cor/tamanho pode ter fotos próprias, que a
   loja mostra no lugar das fotos gerais quando aquela variação é
   escolhida.
+- **2026-11-04** — Páginas institucionais e foto de categoria editáveis
+  no admin. Migração em `prisma/sql/2026-11-04-paginas-institucionais.sql`,
+  **ainda não aplicada** (bloqueada pela permissão automática desta
+  sessão — ver "Migrações pendentes" abaixo).
+
+## Migrações pendentes (checar antes de assumir que um campo existe)
+
+Duas migrações estão escritas e commitadas mas **não rodaram** em
+produção — nenhuma mexe em dado existente (só `ADD COLUMN IF NOT
+EXISTS`/`CREATE TABLE IF NOT EXISTS`), então o site não quebra por
+causa disso, mas os recursos que dependem delas ficam quietos:
+
+- `prisma/sql/2026-09-26-melhorias.sql` — frete grátis e parcelas
+  configuráveis (a home já lê `VL_FRETE_GRATIS_MINIMO`/
+  `NR_PARCELAS_SEM_JUROS`, mas como as colunas não existem a barra de
+  avisos nunca mostra isso), CNPJ/razão social no rodapé, newsletter,
+  e o índice único de `PRODUTOS.DS_SLUG` (sem ele, nada no banco
+  impede dois produtos criados ao mesmo tempo com o mesmo endereço).
+- `prisma/sql/2026-11-04-paginas-institucionais.sql` — sem ela, a tela
+  Páginas Institucionais do admin dá erro, e a loja mostra o texto de
+  reserva embutido no código em vez do texto editado.
+
+Rodar (uma vez a conexão com o banco estiver disponível):
+```bash
+npx prisma db execute --file prisma/sql/<arquivo>.sql --schema prisma/schema.prisma
+```
+Na VPS, rodar de dentro do container (`docker cp` o arquivo + `docker
+exec zephira-backend npx prisma db execute ...`) é mais confiável que a
+máquina de desenvolvimento, que aqui tem conexão intermitente com a
+porta 5432 do Supabase (ver "Infra — instabilidades conhecidas").
