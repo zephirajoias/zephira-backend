@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import sharp from 'sharp';
 import { supabaseAdmin } from 'src/common/supabase/supabase.provider';
 import { PrismaService } from 'src/prisma/services/prisma.service';
@@ -6,6 +11,8 @@ import { UpdateConfiguracoesDto } from '../dto/update-configuracoes.dto';
 
 @Injectable()
 export class ConfiguracoesService {
+  private readonly logger = new Logger(ConfiguracoesService.name);
+
   constructor(private readonly prismaService: PrismaService) {}
 
   async getConfiguracoesGerais(): Promise<any> {
@@ -96,28 +103,48 @@ export class ConfiguracoesService {
   }
 
   // Sem autenticação de propósito — precisa ser lido pelo <head> da loja e
-  // do admin (favicon/nome aparecem antes de qualquer login).
+  // do admin (favicon/nome aparecem antes de qualquer login). É o endpoint
+  // mais crítico de todos (logo, favicon, telefone, e-mail): se um campo
+  // novo ainda não existir no banco (migração pendente), cai pros campos
+  // estáveis em vez de devolver 500 — nunca pode tirar o site do ar por
+  // causa de uma coluna que falta.
   async getConfiguracoesPublicas(): Promise<any> {
-    const config = await this.prismaService.cONFIGURACOES_LOJA.findUnique({
-      where: { CD_CONFIGURACAO: 1 },
-      select: {
-        NM_LOJA: true,
-        DS_URL_LOGO: true,
-        DS_URL_FAVICON: true,
-        // Contato aparece no rodapé e nas páginas institucionais da loja.
-        NR_TELEFONE: true,
-        DS_EMAIL_SUPORTE: true,
-        // Barra de avisos da home e dados da empresa (rodapé/Fale Conosco).
-        // Existiam no banco e eram lidos pelo front desde 2026-09-26, mas
-        // esse select nunca tinha sido atualizado — os dois nunca chegavam.
-        VL_FRETE_GRATIS_MINIMO: true,
-        NR_PARCELAS_SEM_JUROS: true,
-        NM_RAZAO_SOCIAL: true,
-        NR_CNPJ: true,
-        DS_ENDERECO_LOJA: true,
-        DS_INSTAGRAM: true,
-      },
-    });
+    let config: any;
+    try {
+      config = await this.prismaService.cONFIGURACOES_LOJA.findUnique({
+        where: { CD_CONFIGURACAO: 1 },
+        select: {
+          NM_LOJA: true,
+          DS_URL_LOGO: true,
+          DS_URL_FAVICON: true,
+          // Contato aparece no rodapé e nas páginas institucionais da loja.
+          NR_TELEFONE: true,
+          DS_EMAIL_SUPORTE: true,
+          // Barra de avisos da home e dados da empresa (rodapé/Fale
+          // Conosco). Colunas da migração de 2026-09-26.
+          VL_FRETE_GRATIS_MINIMO: true,
+          NR_PARCELAS_SEM_JUROS: true,
+          NM_RAZAO_SOCIAL: true,
+          NR_CNPJ: true,
+          DS_ENDERECO_LOJA: true,
+          DS_INSTAGRAM: true,
+        },
+      });
+    } catch (err) {
+      this.logger.error(
+        `getConfiguracoesPublicas com campos novos falhou (migração pendente?), caindo pros campos estáveis: ${err}`,
+      );
+      config = await this.prismaService.cONFIGURACOES_LOJA.findUnique({
+        where: { CD_CONFIGURACAO: 1 },
+        select: {
+          NM_LOJA: true,
+          DS_URL_LOGO: true,
+          DS_URL_FAVICON: true,
+          NR_TELEFONE: true,
+          DS_EMAIL_SUPORTE: true,
+        },
+      });
+    }
 
     return (
       config ?? {
