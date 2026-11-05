@@ -266,6 +266,13 @@ instância.
   Sem ele a API responde "Nenhum frete válido encontrado" e o carrinho fica
   sem opção de frete. Hoje o código manda `1,2,3,17,31` (PAC, SEDEX,
   Jadlog, Mini Envios, Loggi).
+- **API da SuperFrete falha com 502 de vez em quando** — confirmado
+  2026-11-05, 2 chamadas seguidas falharam e a do meio funcionou normal
+  (CEP válido, sem mudar nada). Reclamação da Thaís de "não encontramos
+  opções de frete" era isso, não CEP fora de área. `SuperFreteService.request`
+  agora tenta de novo uma vez (800ms de atraso) antes de desistir — cobre
+  a maioria dos casos. Se voltar a acontecer, é a SuperFrete mesmo, não o
+  nosso código.
 - `FRONTEND_URL` no `.env` tem `/` no final — qualquer código que
   concatena esse valor com um path (ex: link de recuperação de senha)
   precisa tirar a barra final primeiro (`.replace(/\/+$/, '')`), senão

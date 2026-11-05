@@ -122,7 +122,7 @@ export class SuperFreteService {
     };
   }
 
-  private async request<T = any>(
+  private async requestUmaVez<T = any>(
     path: string,
     body?: Record<string, unknown>,
   ): Promise<T> {
@@ -145,6 +145,24 @@ export class SuperFreteService {
     }
 
     return data as T;
+  }
+
+  // A API da SuperFrete falha de vez em quando com 502 (erro deles, não
+  // nosso — confirmado 2026-11-05: 2 em 3 chamadas seguidas falharam, a do
+  // meio funcionou normal). Sem isso, o cliente via "não encontramos
+  // opções de frete" no carrinho por uma falha passageira. Uma tentativa
+  // extra com um pequeno atraso resolve a maioria dos casos.
+  private async request<T = any>(
+    path: string,
+    body?: Record<string, unknown>,
+  ): Promise<T> {
+    try {
+      return await this.requestUmaVez<T>(path, body);
+    } catch (err) {
+      this.logger.warn(`SuperFrete ${path} falhou, tentando de novo: ${err}`);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      return this.requestUmaVez<T>(path, body);
+    }
   }
 
   async calcularFrete(cepDestino: string): Promise<OpcaoFrete[]> {
