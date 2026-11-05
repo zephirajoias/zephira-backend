@@ -10,7 +10,7 @@ import { cancelarSePendente } from 'src/common/estoque-pedido';
 import { PrismaService } from 'src/prisma/services/prisma.service';
 import { CheckoutDto } from '../dto/checkout.dto';
 import { PagamentoService } from './pagamento.service';
-import { SuperFreteService } from './superfrete.service';
+import { ID_SERVICO_RETIRADA, SuperFreteService } from './superfrete.service';
 
 @Injectable()
 export class PedidosService {
@@ -97,8 +97,14 @@ export class PedidosService {
     let desconto = 0;
     let promocao: { CD_PROMOCAO: number } | null = null;
     let frete = dto.VL_FRETE ?? 0;
+    // Retirada na loja: sem frete, sem reserva de envio na SuperFrete (ver
+    // bloco mais abaixo). CD_SERVICO_FRETE === 0 não pode cair no `if
+    // (dto.CD_SERVICO_FRETE)` de baixo porque 0 é falsy em JS.
+    const ehRetirada = dto.CD_SERVICO_FRETE === ID_SERVICO_RETIRADA;
 
-    if (dto.CD_SERVICO_FRETE) {
+    if (ehRetirada) {
+      frete = 0;
+    } else if (dto.CD_SERVICO_FRETE) {
       const opcoesFrete = await this.superFreteService.calcularFrete(
         endereco.NR_CEP,
       );
@@ -203,6 +209,9 @@ export class PedidosService {
             NM_BAIRRO: endereco.NM_BAIRRO,
             NM_CIDADE: endereco.NM_CIDADE,
             DS_UF: endereco.DS_UF,
+            // Sem coluna própria de propósito (evita outra migração
+            // pendente) — "RETIRADA" | "ENVIO". Ver ehRetirada acima.
+            DS_METODO_ENVIO: ehRetirada ? 'RETIRADA' : 'ENVIO',
           },
           TS_CRIACAO: new Date(),
           TS_ATUALIZACAO: new Date(),
@@ -234,7 +243,7 @@ export class PedidosService {
       );
     }
 
-    if (dto.CD_SERVICO_FRETE && usuario) {
+    if (dto.CD_SERVICO_FRETE && !ehRetirada && usuario) {
       try {
         const envio = await this.superFreteService.reservarEnvio(
           dto.CD_SERVICO_FRETE,

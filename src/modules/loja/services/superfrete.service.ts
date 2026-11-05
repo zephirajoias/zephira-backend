@@ -16,6 +16,19 @@ export interface OpcaoFrete {
   prazoDias: number;
 }
 
+// Retirada na loja (sem frete, sem SuperFrete envolvido) — pedido da
+// Thaís em 2026-11-05. idServico 0 é reservado pra essa opção (nenhum
+// serviço real da SuperFrete usa 0); PedidosService.checkout trata esse
+// valor como pickup e pula a reserva de envio.
+export const ID_SERVICO_RETIRADA = 0;
+const OPCAO_RETIRADA: OpcaoFrete = {
+  idServico: ID_SERVICO_RETIRADA,
+  transportadora: 'Retirada',
+  servico: 'Retirada (apenas Salvador) — a combinar com o vendedor',
+  preco: 0,
+  prazoDias: 0,
+};
+
 interface DestinatarioEnvio {
   nome: string;
   cep: string;
@@ -165,31 +178,43 @@ export class SuperFreteService {
     }
   }
 
+  // Retirada aparece sempre, mesmo sem SuperFrete configurado ou se a API
+  // deles falhar de novo depois do retry — nunca pode deixar o cliente
+  // sem nenhuma opção no carrinho.
   async calcularFrete(cepDestino: string): Promise<OpcaoFrete[]> {
-    if (!this.isConfigured) return [];
+    if (!this.isConfigured) return [OPCAO_RETIRADA];
 
-    const { cepOrigem, pacote } = await this.configuracaoEnvio();
-    const cepLimpo = cepDestino.replace(/\D/g, '');
+    try {
+      const { cepOrigem, pacote } = await this.configuracaoEnvio();
+      const cepLimpo = cepDestino.replace(/\D/g, '');
 
-    const opcoes = await this.request<any[]>('/api/v0/calculator', {
-      from: { postal_code: cepOrigem },
-      to: { postal_code: cepLimpo },
-      // Sem a lista de serviços a SuperFrete passou a responder "nenhum
-      // frete válido" (set/2026). 1 PAC, 2 SEDEX, 3 Jadlog, 17 Mini Envios,
-      // 31 Loggi.
-      services: '1,2,3,17,31',
-      package: pacote,
-    });
+      const opcoes = await this.request<any[]>('/api/v0/calculator', {
+        from: { postal_code: cepOrigem },
+        to: { postal_code: cepLimpo },
+        // Sem a lista de serviços a SuperFrete passou a responder "nenhum
+        // frete válido" (set/2026). 1 PAC, 2 SEDEX, 3 Jadlog, 17 Mini
+        // Envios, 31 Loggi.
+        services: '1,2,3,17,31',
+        package: pacote,
+      });
 
-    return opcoes
-      .filter((opcao) => !opcao.has_error)
-      .map((opcao) => ({
-        idServico: opcao.id,
-        transportadora: opcao.company?.name ?? opcao.name,
-        servico: opcao.name,
-        preco: Number(opcao.price),
-        prazoDias: opcao.delivery_time,
-      }));
+      const opcoesValidas = opcoes
+        .filter((opcao) => !opcao.has_error)
+        .map((opcao) => ({
+          idServico: opcao.id,
+          transportadora: opcao.company?.name ?? opcao.name,
+          servico: opcao.name,
+          preco: Number(opcao.price),
+          prazoDias: opcao.delivery_time,
+        }));
+
+      return [...opcoesValidas, OPCAO_RETIRADA];
+    } catch (err) {
+      this.logger.error(
+        `calcularFrete falhou mesmo com retry, devolvendo só a retirada: ${err}`,
+      );
+      return [OPCAO_RETIRADA];
+    }
   }
 
   /**

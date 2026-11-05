@@ -82,6 +82,22 @@ chegando atrasado para um pedido que já está pago.
 Pedido abandonado (o cliente nunca paga, não chega webhook) é cancelado
 sozinho depois de 24h: ver "Pedido pendente".
 
+## Retirada na loja (sem frete)
+
+Pedido da Thaís (2026-11-05): além das opções da SuperFrete, o carrinho
+sempre mostra "Retirada (apenas Salvador) — a combinar com o vendedor",
+frete R$ 0. `SuperFreteService.calcularFrete` sempre inclui essa opção
+sintética (`ID_SERVICO_RETIRADA = 0`) no fim da lista — mesmo se a
+SuperFrete não estiver configurada ou a API deles falhar, o carrinho
+nunca fica sem nenhuma opção. Em `PedidosService.checkout`, `CD_SERVICO_FRETE
+=== 0` pula a reserva de envio na SuperFrete (sem isso tentaria reservar
+um frete real pra um pedido que não vai ser enviado) e marca
+`DS_SNAPSHOT_ENDERECO.DS_METODO_ENVIO: "RETIRADA"` (sem coluna própria
+de propósito, pra não criar mais uma migração pendente). O admin
+(`PedidoDetalheModal.tsx`) mostra "Retirada" em vez do endereço quando
+essa chave existir; pedidos antigos não têm a chave e continuam
+mostrando o endereço normal.
+
 ## Cache do catálogo público
 
 As 4 rotas de `/products` (`products.controller.ts`) respondem com
