@@ -98,6 +98,20 @@ de propósito, pra não criar mais uma migração pendente). O admin
 essa chave existir; pedidos antigos não têm a chave e continuam
 mostrando o endereço normal.
 
+## Frete grátis a partir de um valor — tinha que calcular de verdade
+
+`VL_FRETE_GRATIS_MINIMO` (Configurações Gerais → Barra de Avisos) só
+mudava o texto da barra da home — nunca zerava o preço de verdade no
+carrinho. Reportado pela Thaís em 2026-11-05 ("fiz um teste acima de
+R$280, mas não apareceu a opção grátis"). Corrigido: `GET
+/frete/calcular` agora recebe `?subtotal=` (carrinho manda
+`totalPrice`), `SuperFreteService.calcularFrete(cep, subtotal)` zera o
+preço de todas as opções de transportadora (não a retirada, que já é
+grátis) quando `subtotal >= VL_FRETE_GRATIS_MINIMO`. `PedidosService.checkout`
+chama `calcularFrete` com o `subtotal` calculado no servidor (não o do
+carrinho) — então o cliente não consegue forçar frete grátis mandando
+um `CD_SERVICO_FRETE` com subtotal inventado.
+
 ## Cache do catálogo público
 
 As 4 rotas de `/products` (`products.controller.ts`) respondem com

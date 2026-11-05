@@ -75,6 +75,7 @@ export class SuperFreteService {
    */
   private async configuracaoEnvio(): Promise<{
     cepOrigem: string;
+    freteGratisMinimo: number;
     remetente: {
       postal_code: string;
       name?: string;
@@ -96,6 +97,7 @@ export class SuperFreteService {
 
     return {
       cepOrigem,
+      freteGratisMinimo: Number(config?.VL_FRETE_GRATIS_MINIMO) || 0,
       remetente: {
         postal_code: cepOrigem,
         name: config?.NM_REMETENTE || process.env.SUPERFRETE_REMETENTE_NOME,
@@ -180,12 +182,20 @@ export class SuperFreteService {
 
   // Retirada aparece sempre, mesmo sem SuperFrete configurado ou se a API
   // deles falhar de novo depois do retry — nunca pode deixar o cliente
-  // sem nenhuma opção no carrinho.
-  async calcularFrete(cepDestino: string): Promise<OpcaoFrete[]> {
+  // sem nenhuma opção no carrinho. `subtotal` é opcional (quem chama sem
+  // ele, como o checkout.dto antigo, simplesmente não ativa o frete
+  // grátis) — ver VL_FRETE_GRATIS_MINIMO em Configurações Gerais: antes
+  // só aparecia na barra da home, não derrubava o preço de verdade no
+  // carrinho (bug reportado pela Thaís em 2026-11-05).
+  async calcularFrete(
+    cepDestino: string,
+    subtotal?: number,
+  ): Promise<OpcaoFrete[]> {
     if (!this.isConfigured) return [OPCAO_RETIRADA];
 
     try {
-      const { cepOrigem, pacote } = await this.configuracaoEnvio();
+      const { cepOrigem, pacote, freteGratisMinimo } =
+        await this.configuracaoEnvio();
       const cepLimpo = cepDestino.replace(/\D/g, '');
 
       const opcoes = await this.request<any[]>('/api/v0/calculator', {
@@ -198,13 +208,18 @@ export class SuperFreteService {
         package: pacote,
       });
 
+      const freteGratis =
+        freteGratisMinimo > 0 &&
+        subtotal !== undefined &&
+        subtotal >= freteGratisMinimo;
+
       const opcoesValidas = opcoes
         .filter((opcao) => !opcao.has_error)
         .map((opcao) => ({
           idServico: opcao.id,
           transportadora: opcao.company?.name ?? opcao.name,
           servico: opcao.name,
-          preco: Number(opcao.price),
+          preco: freteGratis ? 0 : Number(opcao.price),
           prazoDias: opcao.delivery_time,
         }));
 

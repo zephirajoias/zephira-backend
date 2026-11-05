@@ -105,8 +105,12 @@ export class PedidosService {
     if (ehRetirada) {
       frete = 0;
     } else if (dto.CD_SERVICO_FRETE) {
+      // subtotal pro mesmo cálculo de frete grátis (VL_FRETE_GRATIS_MINIMO)
+      // que o carrinho já aplicou ao mostrar as opções — sem isso o
+      // checkout ignoraria o frete grátis e cobraria o preço cheio.
       const opcoesFrete = await this.superFreteService.calcularFrete(
         endereco.NR_CEP,
+        subtotal,
       );
       const opcaoEscolhida = opcoesFrete.find(
         (o) => o.idServico === dto.CD_SERVICO_FRETE,

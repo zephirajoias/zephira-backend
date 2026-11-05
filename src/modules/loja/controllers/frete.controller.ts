@@ -10,13 +10,19 @@ export class FreteController {
   async calcular(
     @Res() res: Response,
     @Query('cep') cep: string,
+    @Query('subtotal') subtotal?: string,
   ): Promise<any> {
     try {
       if (!cep || cep.replace(/\D/g, '').length !== 8) {
         return res.status(400).send({ message: 'CEP inválido.' });
       }
 
-      const opcoes = await this.superFreteService.calcularFrete(cep);
+      const subtotalNumero =
+        subtotal !== undefined ? Number(subtotal) : undefined;
+      const opcoes = await this.superFreteService.calcularFrete(
+        cep,
+        Number.isFinite(subtotalNumero) ? subtotalNumero : undefined,
+      );
       return res.status(200).send(opcoes);
     } catch (err) {
       console.log(err);
