@@ -353,6 +353,23 @@ mexer nessa stack nem nas portas dela (5678, 8080).
   **ainda não aplicada** (bloqueada pela permissão automática desta
   sessão — ver "Migrações pendentes" abaixo).
 
+## Configurações Gerais — resiliente à migração pendente
+
+`getConfiguracoesGerais`, `updateConfiguracoesGerais` e
+`getConfiguracoesPublicas` tentam ler/gravar todos os campos e, se a
+query falhar (coluna que a migração de 2026-09-26 ainda não criou),
+caem pros campos estáveis (lista `CAMPOS_ESTAVEIS`/`CAMPOS_NOVOS` no
+topo de `configuracoes.service.ts`). Sem isso, faltar uma coluna
+quebrava a tela inteira de Configurações Gerais (nem abria, nem salvava
+nada, nem o telefone) e o `/configuracoes/publicas` público (logo,
+favicon, telefone da loja inteira) — descoberto em 2026-11-05 quando o
+deploy do formulário novo derrubou esses dois na hora, mascarado por
+alguns minutos pelo cache do Next no front. **Esse padrão (select
+amplo tentado primeiro, fallback pros campos antigos) é o jeito certo
+de adicionar campo novo em qualquer tabela que endpoint público ou tela
+crítica já leem — nunca só acrescentar no select e confiar que a
+migração já rodou.**
+
 ## Migrações pendentes (checar antes de assumir que um campo existe)
 
 Duas migrações estão escritas e commitadas mas **não rodaram** em
@@ -378,3 +395,9 @@ Na VPS, rodar de dentro do container (`docker cp` o arquivo + `docker
 exec zephira-backend npx prisma db execute ...`) é mais confiável que a
 máquina de desenvolvimento, que aqui tem conexão intermitente com a
 porta 5432 do Supabase (ver "Infra — instabilidades conhecidas").
+- **2026-11-05** — `prisma/schema.prisma` sincronizado com a migração de
+  2026-09-26 (nunca tinha sido atualizado, só o SQL existia — por isso
+  não compilava usar esses campos). Frete grátis, parcelas e dados da
+  empresa viram editáveis em Configurações Gerais. `getConfiguracoesGerais`/
+  `updateConfiguracoesGerais`/`getConfiguracoesPublicas` resilientes à
+  migração pendente (ver seção acima).
