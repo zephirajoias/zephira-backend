@@ -100,4 +100,10 @@ export class UpdateConfiguracoesDto {
   @IsOptional()
   @IsString()
   DS_INSTAGRAM?: string;
+
+  // Texto do rodapé da home (as fotos de banner/Combinações têm rota de
+  // upload própria — ver uploadImagemHome).
+  @IsOptional()
+  @IsString()
+  DS_TEXTO_RODAPE?: string;
 }

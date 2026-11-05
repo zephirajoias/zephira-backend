@@ -42,6 +42,7 @@ const CAMPOS_NOVOS = [
   'NR_CNPJ',
   'DS_ENDERECO_LOJA',
   'DS_INSTAGRAM',
+  'DS_TEXTO_RODAPE',
 ] as const;
 
 @Injectable()
@@ -93,6 +94,7 @@ export class ConfiguracoesService {
       NR_CNPJ: dto.NR_CNPJ,
       DS_ENDERECO_LOJA: dto.DS_ENDERECO_LOJA,
       DS_INSTAGRAM: dto.DS_INSTAGRAM,
+      DS_TEXTO_RODAPE: dto.DS_TEXTO_RODAPE,
       TS_ATUALIZACAO: new Date(),
     };
 
@@ -178,6 +180,68 @@ export class ConfiguracoesService {
     return { url: publicUrl };
   }
 
+  // Banner do topo e as 2 fotos de "Combinações Perfeitas" da home — antes
+  // fixas no código do e-commerce (fotos de banco de imagem). Colunas da
+  // migração 2026-11-05-home-editavel.sql: se ainda não rodou, o upload
+  // falha com uma mensagem clara em vez de 500 genérico.
+  async uploadImagemHome(
+    tipo: 'banner_home' | 'combinacao_1' | 'combinacao_2',
+    file: Express.Multer.File,
+  ): Promise<{ url: string }> {
+    if (!file) {
+      throw new BadRequestException('Nenhum arquivo enviado.');
+    }
+
+    // Banner é bem mais largo que as fotos de Combinações.
+    const largura = tipo === 'banner_home' ? 2000 : 900;
+
+    const buffer = await sharp(file.buffer)
+      .resize(largura, undefined, { withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
+    const fileName = `config/${tipo}-${Date.now()}.jpg`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('imagens-produtos')
+      .upload(fileName, buffer, { contentType: 'image/jpeg', upsert: false });
+
+    if (uploadError) {
+      throw new InternalServerErrorException('Falha no upload da imagem.');
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabaseAdmin.storage.from('imagens-produtos').getPublicUrl(fileName);
+
+    const campo =
+      tipo === 'banner_home'
+        ? 'DS_URL_BANNER_HOME'
+        : tipo === 'combinacao_1'
+          ? 'DS_URL_FOTO_COMBINACAO_1'
+          : 'DS_URL_FOTO_COMBINACAO_2';
+
+    try {
+      await this.prismaService.cONFIGURACOES_LOJA.upsert({
+        where: { CD_CONFIGURACAO: 1 },
+        update: { [campo]: publicUrl, TS_ATUALIZACAO: new Date() },
+        create: {
+          CD_CONFIGURACAO: 1,
+          NM_LOJA: 'Zephira Joias',
+          [campo]: publicUrl,
+        },
+        select: CAMPOS_ESTAVEIS,
+      });
+    } catch (err) {
+      this.logger.error(`uploadImagemHome (${tipo}) falhou: ${err}`);
+      throw new BadRequestException(
+        'Essa imagem depende de uma atualização do sistema que ainda não rodou. Avise o Gustavo.',
+      );
+    }
+
+    return { url: publicUrl };
+  }
+
   // Sem autenticação de propósito — precisa ser lido pelo <head> da loja e
   // do admin (favicon/nome aparecem antes de qualquer login). É o endpoint
   // mais crítico de todos (logo, favicon, telefone, e-mail): se um campo
@@ -204,6 +268,12 @@ export class ConfiguracoesService {
           NR_CNPJ: true,
           DS_ENDERECO_LOJA: true,
           DS_INSTAGRAM: true,
+          // Banner/Combinações/rodapé da home. Migração
+          // 2026-11-05-home-editavel.sql.
+          DS_URL_BANNER_HOME: true,
+          DS_URL_FOTO_COMBINACAO_1: true,
+          DS_URL_FOTO_COMBINACAO_2: true,
+          DS_TEXTO_RODAPE: true,
         },
       });
     } catch (err) {
@@ -235,6 +305,10 @@ export class ConfiguracoesService {
         NR_CNPJ: null,
         DS_ENDERECO_LOJA: null,
         DS_INSTAGRAM: null,
+        DS_URL_BANNER_HOME: null,
+        DS_URL_FOTO_COMBINACAO_1: null,
+        DS_URL_FOTO_COMBINACAO_2: null,
+        DS_TEXTO_RODAPE: null,
       }
     );
   }

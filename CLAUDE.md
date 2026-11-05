@@ -171,6 +171,24 @@ a foto antiga do Storage). Usada hoje nos 4 círculos "Navegue por
 Categorias" da home (loja cai numa foto de banco de imagem enquanto não
 subir a própria, só pra essas 4 categorias — ver `e-commerce/src/app/page.tsx`).
 
+## Imagens da home e texto do rodapé
+
+Banner do topo, as 2 fotos de "Combinações Perfeitas" e o texto do rodapé
+(embaixo da logo) eram fixos no código do e-commerce (fotos de banco de
+imagem) — agora editáveis em admin → Configurações Gerais →
+"Imagens da Home"/"Texto do Rodapé". Colunas em `CONFIGURACOES_LOJA`:
+`DS_URL_BANNER_HOME`, `DS_URL_FOTO_COMBINACAO_1/2`, `DS_TEXTO_RODAPE`
+(migração `prisma/sql/2026-11-05-home-editavel.sql`). Upload por
+`POST admin/configuracoes/banner-home|combinacao-1|combinacao-2`
+(`ConfiguracoesService.uploadImagemHome`, mesmo padrão de logo/favicon,
+banner redimensionado pra até 2000px de largura e as fotos de
+combinações pra até 900px). Em branco, a loja continua com a foto/texto
+de reserva embutido no código (mesmo padrão das páginas institucionais)
+— nunca fica em branco. **Não trocar essas fotos/texto por conta
+própria sem pedido explícito da loja** (ver `[[visual-da-home-nao-mexer]]`
+na memória): são escolha visual da Thaís, só a infraestrutura de
+deixar editável é técnica.
+
 ## Descontão (promoção em massa)
 
 `POST`/`DELETE admin/produtos/promocao-em-massa` (`produtos.controller.ts`,
@@ -387,22 +405,20 @@ leitura.
 
 ## Migrações pendentes (checar antes de assumir que um campo existe)
 
-Duas migrações estão escritas e commitadas mas **não rodaram** em
-produção — nenhuma mexe em dado existente (só `ADD COLUMN IF NOT
+`2026-09-26-melhorias.sql` e `2026-11-04-paginas-institucionais.sql`
+já rodaram em produção em 2026-11-05 (direto num container na VPS, ver
+"Deploy"). Falta rodar:
+
+- `prisma/sql/2026-11-05-home-editavel.sql` — banner/Combinações/rodapé
+  da home (ver seção "Imagens da home e texto do rodapé"). Sem ela, o
+  admin tenta salvar e dá erro claro ("depende de uma atualização do
+  sistema"); a loja continua com a foto/texto de reserva embutido no
+  código, não quebra.
+
+Nenhuma migração mexe em dado existente (só `ADD COLUMN IF NOT
 EXISTS`/`CREATE TABLE IF NOT EXISTS`), então o site não quebra por
-causa disso, mas os recursos que dependem delas ficam quietos:
-
-- `prisma/sql/2026-09-26-melhorias.sql` — frete grátis e parcelas
-  configuráveis (a home já lê `VL_FRETE_GRATIS_MINIMO`/
-  `NR_PARCELAS_SEM_JUROS`, mas como as colunas não existem a barra de
-  avisos nunca mostra isso), CNPJ/razão social no rodapé, newsletter,
-  e o índice único de `PRODUTOS.DS_SLUG` (sem ele, nada no banco
-  impede dois produtos criados ao mesmo tempo com o mesmo endereço).
-- `prisma/sql/2026-11-04-paginas-institucionais.sql` — sem ela, a tela
-  Páginas Institucionais do admin dá erro, e a loja mostra o texto de
-  reserva embutido no código em vez do texto editado.
-
-Rodar (uma vez a conexão com o banco estiver disponível):
+causa de uma pendente — só o recurso novo fica quieto. Rodar (uma vez
+a conexão com o banco estiver disponível):
 ```bash
 npx prisma db execute --file prisma/sql/<arquivo>.sql --schema prisma/schema.prisma
 ```
@@ -416,3 +432,13 @@ porta 5432 do Supabase (ver "Infra — instabilidades conhecidas").
   empresa viram editáveis em Configurações Gerais. `getConfiguracoesGerais`/
   `updateConfiguracoesGerais`/`getConfiguracoesPublicas` resilientes à
   migração pendente (ver seção acima).
+- **2026-11-05** — Achado e corrigido um bug maior: `upsert`/`update` do
+  Prisma sem `select` explícito tenta devolver todas as colunas do model
+  pra montar o retorno, mesmo as que não entraram em `update`/`create` —
+  por causa disso, **nenhum** save em Configurações Gerais funcionava
+  (nem nome, nem logo/favicon), não só os campos da migração pendente.
+  Corrigido com `select: CAMPOS_ESTAVEIS` em todo upsert dessa tabela.
+  As duas migrações pendentes rodaram em produção (direto no container
+  da VPS). Banner do topo, fotos de "Combinações Perfeitas" e texto do
+  rodapé da home também viram editáveis (ver seção acima), e a foto
+  quebrada do banner (Unsplash fora do ar) foi trocada.

@@ -77,4 +77,55 @@ export class ConfiguracoesController {
       throw err;
     }
   }
+
+  @Post('configuracoes/banner-home')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadBannerHome(
+    @Res() res: Response,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<any> {
+    try {
+      const result = await this.configuracoesService.uploadImagemHome(
+        'banner_home',
+        file,
+      );
+      return res.status(201).send(result);
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  @Post('configuracoes/combinacao-1')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadCombinacao1(
+    @Res() res: Response,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<any> {
+    try {
+      const result = await this.configuracoesService.uploadImagemHome(
+        'combinacao_1',
+        file,
+      );
+      return res.status(201).send(result);
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  @Post('configuracoes/combinacao-2')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadCombinacao2(
+    @Res() res: Response,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<any> {
+    try {
+      const result = await this.configuracoesService.uploadImagemHome(
+        'combinacao_2',
+        file,
+      );
+      return res.status(201).send(result);
+    } catch (err) {
+      throw err;
+    }
+  }
 }
