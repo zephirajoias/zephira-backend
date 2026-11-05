@@ -84,6 +84,21 @@ export class CategoriasController {
     }
   }
 
+  @Put('categorias/:id/imagem')
+  @UseInterceptors(FileInterceptor('file'))
+  async atualizarImagemCategoria(
+    @Res() res: Response,
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    try {
+      const result = await this.categoriasService.atualizarImagemCategoria(id, file);
+      return res.status(200).send(result);
+    } catch (err) {
+      throw err;
+    }
+  }
+
   @Delete('delete-categoria/:id')
   async deleteCategoria(
     @Res() res: Response,

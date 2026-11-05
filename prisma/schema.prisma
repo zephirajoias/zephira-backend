@@ -207,6 +207,21 @@ model PROMOCOES {
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+// Texto das páginas institucionais da loja (Sobre, Garantia, Trocas, FAQ,
+// Como Comprar, Fale Conosco), editável no admin. DS_SLUG é um dos 6 nomes
+// fixos que o front espera (ver apps/e-commerce). DS_CONTEUDO é texto
+// simples com uma formatação mínima (## título, - item de lista, **negrito**,
+// [texto](link)) — exceto na página "faq", onde é um JSON
+// `[{"p":"pergunta","r":"resposta"}, ...]`.
+model PAGINA_INSTITUCIONAL {
+  DS_SLUG        String    @id @db.VarChar(30)
+  NM_TITULO      String    @db.VarChar(150)
+  DS_CONTEUDO    String
+  TS_ATUALIZACAO DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("Zephira")
+}
+
 model CONFIGURACOES_LOJA {
   CD_CONFIGURACAO  Int       @id @default(1)
   NM_LOJA          String    @db.VarChar(100)

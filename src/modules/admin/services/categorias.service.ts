@@ -173,6 +173,61 @@ WHERE
     return categoria;
   }
 
+  /**
+   * Troca a foto da categoria (os círculos "Navegue por Categorias" da
+   * home, por exemplo). Apaga a foto antiga do Storage pra não acumular
+   * arquivo órfão — melhor esforço, não trava a troca se a antiga já não
+   * existir mais.
+   */
+  async atualizarImagemCategoria(
+    id_categoria: number,
+    file: Express.Multer.File,
+  ): Promise<any> {
+    const categoria = await this.prismaService.cATEGORIA.findUnique({
+      where: { CD_CATEGORIA: id_categoria },
+      select: { DS_SLUG: true, DS_URL_IMAGEM: true },
+    });
+    if (!categoria) {
+      throw new InternalServerErrorException('Categoria não encontrada.');
+    }
+
+    const fileExt = file.originalname.split('.').pop();
+    const fileName = `categorias/${categoria.DS_SLUG}-${Date.now()}.${fileExt}`;
+
+    const { error } = await supabaseAdmin.storage
+      .from('imagens-produtos')
+      .upload(fileName, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+    if (error) {
+      console.error('Erro Supabase:', error);
+      throw new InternalServerErrorException('Falha no upload da imagem');
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabaseAdmin.storage.from('imagens-produtos').getPublicUrl(fileName);
+
+    const atualizada = await this.prismaService.cATEGORIA.update({
+      where: { CD_CATEGORIA: id_categoria },
+      data: { DS_URL_IMAGEM: publicUrl },
+      select: { CD_CATEGORIA: true, DS_URL_IMAGEM: true },
+    });
+
+    if (categoria.DS_URL_IMAGEM) {
+      const antigoPath = categoria.DS_URL_IMAGEM.split('/imagens-produtos/')[1];
+      if (antigoPath) {
+        await supabaseAdmin.storage
+          .from('imagens-produtos')
+          .remove([antigoPath])
+          .catch(() => undefined);
+      }
+    }
+
+    return atualizada;
+  }
+
   async deleteCategoria(id_categoria: number): Promise<any> {
     const categoria = await this.prismaService.cATEGORIA.delete({
       where: {

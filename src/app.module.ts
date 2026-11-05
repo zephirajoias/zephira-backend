@@ -12,12 +12,14 @@ import { LojaModule } from './modules/loja/loja.module';
 import { ProductsModule } from './modules/products/products.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
+import { PaginasModule } from './modules/paginas/paginas.module';
 
 @Module({
   imports: [
     PrismaModule,
     ProductsModule,
     TelegramModule,
+    PaginasModule,
     AdminModule,
     LojaModule,
     ConfigModule.forRoot({
