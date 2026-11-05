@@ -71,4 +71,33 @@ export class UpdateConfiguracoesDto {
   @Type(() => Number)
   @IsNumber()
   NR_PACOTE_PESO?: number;
+
+  // Barra de avisos da home (frete grátis / parcelas sem juros).
+  // Vazio/0 desliga o aviso correspondente — ver page.tsx do e-commerce.
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  VL_FRETE_GRATIS_MINIMO?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  NR_PARCELAS_SEM_JUROS?: number;
+
+  // Dados da empresa (Decreto 7.962/2013): rodapé e página Fale Conosco.
+  @IsOptional()
+  @IsString()
+  NM_RAZAO_SOCIAL?: string;
+
+  @IsOptional()
+  @IsString()
+  NR_CNPJ?: string;
+
+  @IsOptional()
+  @IsString()
+  DS_ENDERECO_LOJA?: string;
+
+  @IsOptional()
+  @IsString()
+  DS_INSTAGRAM?: string;
 }

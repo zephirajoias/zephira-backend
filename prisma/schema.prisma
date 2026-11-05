@@ -177,6 +177,10 @@ model VARIACOES_PRODUTO {
   CD_SKU       String             @unique @db.VarChar(255)
   DS_TAMANHO   String             @db.VarChar(50)
   QT_ESTOQUE   Int                @default(0)
+  // Preço por tamanho (nulo = usa o VL_PRECO do produto). Coluna existe
+  // desde a migração de 2026-09-26; a funcionalidade de preço por
+  // variação ainda não foi construída no admin/loja — fica pra depois.
+  VL_PRECO     Decimal?           @db.Decimal(12, 2)
   TS_CRIACAO   DateTime?          @default(now()) @db.Timestamptz(6)
   ITENS_PEDIDO ITENS_PEDIDO[]
   IMAGENS_PRODUTO IMAGENS_PRODUTO[]
@@ -247,7 +251,31 @@ model CONFIGURACOES_LOJA {
   NR_PACOTE_COMPRIMENTO Decimal? @db.Decimal(6, 2)
   NR_PACOTE_PESO        Decimal? @db.Decimal(6, 3)
 
+  // Barra de avisos da home (vazio/0 desliga o aviso correspondente) e
+  // dados da empresa pro rodapé/Fale Conosco (Decreto 7.962/2013). Colunas
+  // da migração de 2026-09-26 — só entraram aqui em 2026-11-05, porque o
+  // schema.prisma não tinha sido atualizado junto (campo existia só no SQL
+  // e no front, nunca no Prisma Client — não compilava usá-los).
+  VL_FRETE_GRATIS_MINIMO Decimal? @db.Decimal(12, 2)
+  NR_PARCELAS_SEM_JUROS  Int?
+  NM_RAZAO_SOCIAL        String?  @db.VarChar(150)
+  NR_CNPJ                String?  @db.VarChar(20)
+  DS_ENDERECO_LOJA       String?  @db.VarChar(255)
+  DS_INSTAGRAM           String?  @db.VarChar(100)
+
   TS_ATUALIZACAO   DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("Zephira")
+}
+
+// Lista de e-mails que se inscreveram no rodapé da loja. Migração escrita
+// em 2026-09-26 (prisma/sql/2026-09-26-melhorias.sql); ninguém ainda lê ou
+// escreve essa tabela pelo código — a caixa do rodapé continua só visual
+// até alguém implementar a captura de verdade.
+model NEWSLETTER {
+  CD_INSCRICAO Int       @id @default(autoincrement())
+  DS_EMAIL     String    @unique @db.VarChar(255)
+  TS_CRIACAO   DateTime? @default(now()) @db.Timestamptz(6)
 
   @@schema("Zephira")
 }

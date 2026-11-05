@@ -31,6 +31,14 @@ export class ConfiguracoesService {
       NR_PACOTE_LARGURA: dto.NR_PACOTE_LARGURA,
       NR_PACOTE_COMPRIMENTO: dto.NR_PACOTE_COMPRIMENTO,
       NR_PACOTE_PESO: dto.NR_PACOTE_PESO,
+      // null (não undefined) apaga o valor quando o campo é esvaziado no
+      // admin — undefined faria o Prisma simplesmente ignorar o campo.
+      VL_FRETE_GRATIS_MINIMO: dto.VL_FRETE_GRATIS_MINIMO ?? null,
+      NR_PARCELAS_SEM_JUROS: dto.NR_PARCELAS_SEM_JUROS ?? null,
+      NM_RAZAO_SOCIAL: dto.NM_RAZAO_SOCIAL,
+      NR_CNPJ: dto.NR_CNPJ,
+      DS_ENDERECO_LOJA: dto.DS_ENDERECO_LOJA,
+      DS_INSTAGRAM: dto.DS_INSTAGRAM,
       TS_ATUALIZACAO: new Date(),
     };
 
@@ -99,6 +107,15 @@ export class ConfiguracoesService {
         // Contato aparece no rodapé e nas páginas institucionais da loja.
         NR_TELEFONE: true,
         DS_EMAIL_SUPORTE: true,
+        // Barra de avisos da home e dados da empresa (rodapé/Fale Conosco).
+        // Existiam no banco e eram lidos pelo front desde 2026-09-26, mas
+        // esse select nunca tinha sido atualizado — os dois nunca chegavam.
+        VL_FRETE_GRATIS_MINIMO: true,
+        NR_PARCELAS_SEM_JUROS: true,
+        NM_RAZAO_SOCIAL: true,
+        NR_CNPJ: true,
+        DS_ENDERECO_LOJA: true,
+        DS_INSTAGRAM: true,
       },
     });
 
@@ -109,6 +126,12 @@ export class ConfiguracoesService {
         DS_URL_FAVICON: null,
         NR_TELEFONE: null,
         DS_EMAIL_SUPORTE: null,
+        VL_FRETE_GRATIS_MINIMO: null,
+        NR_PARCELAS_SEM_JUROS: null,
+        NM_RAZAO_SOCIAL: null,
+        NR_CNPJ: null,
+        DS_ENDERECO_LOJA: null,
+        DS_INSTAGRAM: null,
       }
     );
   }
