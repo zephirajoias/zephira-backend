@@ -176,16 +176,33 @@ subir a própria, só pra essas 4 categorias — ver `e-commerce/src/app/page.ts
 Banner do topo, as 2 fotos de "Combinações Perfeitas" e o texto do rodapé
 (embaixo da logo) eram fixos no código do e-commerce (fotos de banco de
 imagem) — agora editáveis em admin → Configurações Gerais →
-"Imagens da Home"/"Texto do Rodapé". Colunas em `CONFIGURACOES_LOJA`:
-`DS_URL_BANNER_HOME`, `DS_URL_FOTO_COMBINACAO_1/2`, `DS_TEXTO_RODAPE`
-(migração `prisma/sql/2026-11-05-home-editavel.sql`). Upload por
-`POST admin/configuracoes/banner-home|combinacao-1|combinacao-2`
+"Imagens da Home"/"Texto do Rodapé".
+
+O banner do topo é um **carrossel**: cada foto pode ter um link próprio
+(categoria, produto, página), guardado como JSON em
+`CONFIGURACOES_LOJA.DS_BANNERS_HOME` (`[{"url","link"}, ...]` — ver
+`BannerHomeSlide` em `configuracoes.service.ts`). Gerido à parte do resto
+do formulário de Configurações Gerais, cada ação chama a API na hora:
+`GET`/`POST admin/configuracoes/banner-home` (listar/adicionar — o POST
+leva arquivo + `link` no mesmo multipart), `DELETE
+admin/configuracoes/banner-home/:indice` (remover), `PUT
+admin/configuracoes/banner-home/mover` (reordenar, body `{de, para}`).
+Banner redimensionado pra até 2000px de largura. A loja renderiza com
+`components/BannerCarousel.tsx` (cliente, gira sozinho a cada 6s, troca
+de foto com fade, bolinhas de navegação, cada foto é um `<Link>` quando
+tem `link`).
+
+As 2 fotos de "Combinações Perfeitas" continuam no modelo simples (uma
+URL fixa cada): colunas `DS_URL_FOTO_COMBINACAO_1/2`, upload por
+`POST admin/configuracoes/combinacao-1|combinacao-2`
 (`ConfiguracoesService.uploadImagemHome`, mesmo padrão de logo/favicon,
-banner redimensionado pra até 2000px de largura e as fotos de
-combinações pra até 900px). Em branco, a loja continua com a foto/texto
-de reserva embutido no código (mesmo padrão das páginas institucionais)
-— nunca fica em branco. **Não trocar essas fotos/texto por conta
-própria sem pedido explícito da loja** (ver `[[visual-da-home-nao-mexer]]`
+redimensionadas pra até 900px). Texto do rodapé: `DS_TEXTO_RODAPE`,
+fluxo normal do formulário (`updateConfiguracoesGerais`). Migração de
+todas essas colunas: `prisma/sql/2026-11-05-home-editavel.sql`. Em
+branco, a loja continua com a foto/texto de reserva embutido no código
+(mesmo padrão das páginas institucionais) — nunca fica em branco.
+**Não trocar essas fotos/texto por conta própria sem pedido explícito
+da loja** (ver `[[visual-da-home-nao-mexer]]`
 na memória): são escolha visual da Thaís, só a infraestrutura de
 deixar editável é técnica.
 

@@ -266,7 +266,9 @@ model CONFIGURACOES_LOJA {
   // Imagens da home editáveis pelo admin (banner do topo, as 2 fotos de
   // "Combinações Perfeitas") e texto do rodapé — antes fixos no código do
   // e-commerce. Migração em prisma/sql/2026-11-05-home-editavel.sql.
-  DS_URL_BANNER_HOME       String?
+  // DS_BANNERS_HOME é um carrossel: JSON `[{"url","link"}, ...]` (cada foto
+  // com link próprio, opcional) — ver ConfiguracoesService.lerBannersHome.
+  DS_BANNERS_HOME          String?
   DS_URL_FOTO_COMBINACAO_1 String?
   DS_URL_FOTO_COMBINACAO_2 String?
   DS_TEXTO_RODAPE          String?  @db.VarChar(300)

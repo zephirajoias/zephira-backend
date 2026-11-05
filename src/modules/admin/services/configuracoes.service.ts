@@ -9,6 +9,11 @@ import { supabaseAdmin } from 'src/common/supabase/supabase.provider';
 import { PrismaService } from 'src/prisma/services/prisma.service';
 import { UpdateConfiguracoesDto } from '../dto/update-configuracoes.dto';
 
+export interface BannerHomeSlide {
+  url: string;
+  link?: string | null;
+}
+
 // Campos que existem desde antes da migração de 2026-09-26 — usados como
 // fallback enquanto ela não roda em produção (ver notas abaixo).
 const CAMPOS_ESTAVEIS = {
@@ -180,23 +185,20 @@ export class ConfiguracoesService {
     return { url: publicUrl };
   }
 
-  // Banner do topo e as 2 fotos de "Combinações Perfeitas" da home — antes
-  // fixas no código do e-commerce (fotos de banco de imagem). Colunas da
-  // migração 2026-11-05-home-editavel.sql: se ainda não rodou, o upload
-  // falha com uma mensagem clara em vez de 500 genérico.
+  // As 2 fotos de "Combinações Perfeitas" da home — antes fixas no código
+  // do e-commerce (fotos de banco de imagem). Coluna da migração
+  // 2026-11-05-home-editavel.sql: se ainda não rodou, o upload falha com
+  // uma mensagem clara em vez de 500 genérico.
   async uploadImagemHome(
-    tipo: 'banner_home' | 'combinacao_1' | 'combinacao_2',
+    tipo: 'combinacao_1' | 'combinacao_2',
     file: Express.Multer.File,
   ): Promise<{ url: string }> {
     if (!file) {
       throw new BadRequestException('Nenhum arquivo enviado.');
     }
 
-    // Banner é bem mais largo que as fotos de Combinações.
-    const largura = tipo === 'banner_home' ? 2000 : 900;
-
     const buffer = await sharp(file.buffer)
-      .resize(largura, undefined, { withoutEnlargement: true })
+      .resize(900, undefined, { withoutEnlargement: true })
       .jpeg({ quality: 85 })
       .toBuffer();
 
@@ -215,11 +217,9 @@ export class ConfiguracoesService {
     } = supabaseAdmin.storage.from('imagens-produtos').getPublicUrl(fileName);
 
     const campo =
-      tipo === 'banner_home'
-        ? 'DS_URL_BANNER_HOME'
-        : tipo === 'combinacao_1'
-          ? 'DS_URL_FOTO_COMBINACAO_1'
-          : 'DS_URL_FOTO_COMBINACAO_2';
+      tipo === 'combinacao_1'
+        ? 'DS_URL_FOTO_COMBINACAO_1'
+        : 'DS_URL_FOTO_COMBINACAO_2';
 
     try {
       await this.prismaService.cONFIGURACOES_LOJA.upsert({
@@ -240,6 +240,114 @@ export class ConfiguracoesService {
     }
 
     return { url: publicUrl };
+  }
+
+  // Carrossel de banners do topo da home, cada foto com link próprio
+  // (opcional — pra categoria, produto ou página). Guardado como JSON em
+  // DS_BANNERS_HOME (migração 2026-11-05-home-editavel.sql).
+  private async lerBannersHome(): Promise<BannerHomeSlide[]> {
+    let bruto: string | null;
+    try {
+      const config = await this.prismaService.cONFIGURACOES_LOJA.findUnique({
+        where: { CD_CONFIGURACAO: 1 },
+        select: { DS_BANNERS_HOME: true },
+      });
+      bruto = config?.DS_BANNERS_HOME ?? null;
+    } catch (err) {
+      this.logger.error(`lerBannersHome falhou (migração pendente?): ${err}`);
+      throw new BadRequestException(
+        'O carrossel do banner depende de uma atualização do sistema que ainda não rodou. Avise o Gustavo.',
+      );
+    }
+    if (!bruto) return [];
+    try {
+      const lista = JSON.parse(bruto);
+      return Array.isArray(lista) ? lista : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private async salvarBannersHome(
+    slides: BannerHomeSlide[],
+  ): Promise<BannerHomeSlide[]> {
+    await this.prismaService.cONFIGURACOES_LOJA.upsert({
+      where: { CD_CONFIGURACAO: 1 },
+      update: {
+        DS_BANNERS_HOME: JSON.stringify(slides),
+        TS_ATUALIZACAO: new Date(),
+      },
+      create: {
+        CD_CONFIGURACAO: 1,
+        NM_LOJA: 'Zephira Joias',
+        DS_BANNERS_HOME: JSON.stringify(slides),
+      },
+      select: CAMPOS_ESTAVEIS,
+    });
+    return slides;
+  }
+
+  async listarBannersHome(): Promise<BannerHomeSlide[]> {
+    return this.lerBannersHome();
+  }
+
+  async adicionarBannerHome(
+    file: Express.Multer.File,
+    link: string | undefined,
+  ): Promise<BannerHomeSlide[]> {
+    if (!file) {
+      throw new BadRequestException('Nenhum arquivo enviado.');
+    }
+
+    const buffer = await sharp(file.buffer)
+      .resize(2000, undefined, { withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
+    const fileName = `config/banner-home-${Date.now()}.jpg`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('imagens-produtos')
+      .upload(fileName, buffer, { contentType: 'image/jpeg', upsert: false });
+
+    if (uploadError) {
+      throw new InternalServerErrorException('Falha no upload da imagem.');
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabaseAdmin.storage.from('imagens-produtos').getPublicUrl(fileName);
+
+    const slides = await this.lerBannersHome();
+    slides.push({ url: publicUrl, link: link?.trim() || null });
+    return this.salvarBannersHome(slides);
+  }
+
+  async removerBannerHome(indice: number): Promise<BannerHomeSlide[]> {
+    const slides = await this.lerBannersHome();
+    if (indice < 0 || indice >= slides.length) {
+      throw new BadRequestException('Banner não encontrado.');
+    }
+    slides.splice(indice, 1);
+    return this.salvarBannersHome(slides);
+  }
+
+  async reordenarBannerHome(
+    de: number,
+    para: number,
+  ): Promise<BannerHomeSlide[]> {
+    const slides = await this.lerBannersHome();
+    if (
+      de < 0 ||
+      de >= slides.length ||
+      para < 0 ||
+      para >= slides.length
+    ) {
+      throw new BadRequestException('Posição inválida.');
+    }
+    const [movido] = slides.splice(de, 1);
+    slides.splice(para, 0, movido);
+    return this.salvarBannersHome(slides);
   }
 
   // Sem autenticação de propósito — precisa ser lido pelo <head> da loja e
@@ -270,7 +378,7 @@ export class ConfiguracoesService {
           DS_INSTAGRAM: true,
           // Banner/Combinações/rodapé da home. Migração
           // 2026-11-05-home-editavel.sql.
-          DS_URL_BANNER_HOME: true,
+          DS_BANNERS_HOME: true,
           DS_URL_FOTO_COMBINACAO_1: true,
           DS_URL_FOTO_COMBINACAO_2: true,
           DS_TEXTO_RODAPE: true,
@@ -305,7 +413,7 @@ export class ConfiguracoesService {
         NR_CNPJ: null,
         DS_ENDERECO_LOJA: null,
         DS_INSTAGRAM: null,
-        DS_URL_BANNER_HOME: null,
+        DS_BANNERS_HOME: null,
         DS_URL_FOTO_COMBINACAO_1: null,
         DS_URL_FOTO_COMBINACAO_2: null,
         DS_TEXTO_RODAPE: null,

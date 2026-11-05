@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
+  ParseIntPipe,
   Post,
   Put,
   Res,
@@ -78,18 +81,62 @@ export class ConfiguracoesController {
     }
   }
 
+  // Carrossel do banner do topo — cada foto com link próprio (opcional).
+  @Get('configuracoes/banner-home')
+  async listarBannerHome(@Res() res: Response): Promise<any> {
+    try {
+      const result = await this.configuracoesService.listarBannersHome();
+      return res.status(200).send(result);
+    } catch (err) {
+      throw err;
+    }
+  }
+
   @Post('configuracoes/banner-home')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadBannerHome(
+  async adicionarBannerHome(
     @Res() res: Response,
     @UploadedFile() file: Express.Multer.File,
+    @Body('link') link?: string,
   ): Promise<any> {
     try {
-      const result = await this.configuracoesService.uploadImagemHome(
-        'banner_home',
+      const result = await this.configuracoesService.adicionarBannerHome(
         file,
+        link,
       );
       return res.status(201).send(result);
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  @Delete('configuracoes/banner-home/:indice')
+  async removerBannerHome(
+    @Res() res: Response,
+    @Param('indice', ParseIntPipe) indice: number,
+  ): Promise<any> {
+    try {
+      const result = await this.configuracoesService.removerBannerHome(
+        indice,
+      );
+      return res.status(200).send(result);
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  @Put('configuracoes/banner-home/mover')
+  async reordenarBannerHome(
+    @Res() res: Response,
+    @Body('de', ParseIntPipe) de: number,
+    @Body('para', ParseIntPipe) para: number,
+  ): Promise<any> {
+    try {
+      const result = await this.configuracoesService.reordenarBannerHome(
+        de,
+        para,
+      );
+      return res.status(200).send(result);
     } catch (err) {
       throw err;
     }
