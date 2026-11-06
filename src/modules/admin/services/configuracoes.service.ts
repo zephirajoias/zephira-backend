@@ -48,6 +48,7 @@ const CAMPOS_NOVOS = [
   'DS_ENDERECO_LOJA',
   'DS_INSTAGRAM',
   'DS_TEXTO_RODAPE',
+  'VL_BRINDE_MINIMO',
 ] as const;
 
 @Injectable()
@@ -100,6 +101,7 @@ export class ConfiguracoesService {
       DS_ENDERECO_LOJA: dto.DS_ENDERECO_LOJA,
       DS_INSTAGRAM: dto.DS_INSTAGRAM,
       DS_TEXTO_RODAPE: dto.DS_TEXTO_RODAPE,
+      VL_BRINDE_MINIMO: dto.VL_BRINDE_MINIMO ?? null,
       TS_ATUALIZACAO: new Date(),
     };
 
@@ -382,6 +384,9 @@ export class ConfiguracoesService {
           DS_URL_FOTO_COMBINACAO_1: true,
           DS_URL_FOTO_COMBINACAO_2: true,
           DS_TEXTO_RODAPE: true,
+          // Brinde (caixinha de joia) a partir de X — carrinho da loja.
+          // Migração prisma/sql/2026-11-05-brinde-minimo.sql.
+          VL_BRINDE_MINIMO: true,
         },
       });
     } catch (err) {
@@ -417,6 +422,7 @@ export class ConfiguracoesService {
         DS_URL_FOTO_COMBINACAO_1: null,
         DS_URL_FOTO_COMBINACAO_2: null,
         DS_TEXTO_RODAPE: null,
+        VL_BRINDE_MINIMO: null,
       }
     );
   }

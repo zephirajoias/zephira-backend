@@ -112,6 +112,18 @@ chama `calcularFrete` com o `subtotal` calculado no servidor (não o do
 carrinho) — então o cliente não consegue forçar frete grátis mandando
 um `CD_SERVICO_FRETE` com subtotal inventado.
 
+## Brinde a partir de um valor (caixinha de joia)
+
+Pedido da Thaís em 2026-11-05: aviso no carrinho (não na barra da home,
+que é outro aviso, `VL_FRETE_GRATIS_MINIMO`) dizendo "Falta R$X pra
+ganhar uma caixinha de joia de brinde" / "Parabéns! Ganhou a caixinha".
+`VL_BRINDE_MINIMO` em `CONFIGURACOES_LOJA`, exposto em `GET
+/configuracoes/publicas`, lido pelo carrinho da loja (`useLoja().config`)
+e comparado com `totalPrice` no cliente — é só um aviso visual, não
+mexe em preço nem em pedido, então não precisa de cálculo no servidor
+como o frete grátis. Vazio/0 desliga o aviso. Migração em
+`prisma/sql/2026-11-05-brinde-minimo.sql`.
+
 ## Cache do catálogo público
 
 As 4 rotas de `/products` (`products.controller.ts`) respondem com
@@ -459,15 +471,16 @@ leitura.
 
 ## Migrações pendentes (checar antes de assumir que um campo existe)
 
-`2026-09-26-melhorias.sql` e `2026-11-04-paginas-institucionais.sql`
-já rodaram em produção em 2026-11-05 (direto num container na VPS, ver
-"Deploy"). Falta rodar:
+`2026-09-26-melhorias.sql`, `2026-11-04-paginas-institucionais.sql` e
+`2026-11-05-home-editavel.sql` (banner/Combinações/rodapé da home)
+já rodaram em produção (confirmado em 2026-11-05 via
+`information_schema.columns` direto no container). Falta rodar:
 
-- `prisma/sql/2026-11-05-home-editavel.sql` — banner/Combinações/rodapé
-  da home (ver seção "Imagens da home e texto do rodapé"). Sem ela, o
-  admin tenta salvar e dá erro claro ("depende de uma atualização do
-  sistema"); a loja continua com a foto/texto de reserva embutido no
-  código, não quebra.
+- `prisma/sql/2026-11-05-brinde-minimo.sql` — `VL_BRINDE_MINIMO` (ver
+  seção "Brinde a partir de um valor"). Sem ela, salvar Configurações
+  Gerais cai no fallback de `CAMPOS_ESTAVEIS` (perde só esse campo, o
+  resto do formulário salva normal) e o carrinho simplesmente não
+  mostra o aviso.
 
 Nenhuma migração mexe em dado existente (só `ADD COLUMN IF NOT
 EXISTS`/`CREATE TABLE IF NOT EXISTS`), então o site não quebra por
@@ -496,3 +509,7 @@ porta 5432 do Supabase (ver "Infra — instabilidades conhecidas").
   da VPS). Banner do topo, fotos de "Combinações Perfeitas" e texto do
   rodapé da home também viram editáveis (ver seção acima), e a foto
   quebrada do banner (Unsplash fora do ar) foi trocada.
+- **2026-11-05** — Retirada na loja (sem frete) e frete grátis a partir
+  de um valor calculado de verdade no carrinho (ver seções próprias).
+  Brinde (caixinha de joia) a partir de um valor, aviso no carrinho —
+  `VL_BRINDE_MINIMO`, migração ainda não rodada.

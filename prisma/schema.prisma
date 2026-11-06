@@ -273,6 +273,12 @@ model CONFIGURACOES_LOJA {
   DS_URL_FOTO_COMBINACAO_2 String?
   DS_TEXTO_RODAPE          String?  @db.VarChar(300)
 
+  // Brinde (caixinha de joia) a partir de um valor mínimo no carrinho —
+  // pedido da Thaís em 2026-11-05, mesmo padrão do VL_FRETE_GRATIS_MINIMO.
+  // Vazio/0 desliga o aviso. Migração em
+  // prisma/sql/2026-11-05-brinde-minimo.sql.
+  VL_BRINDE_MINIMO Decimal? @db.Decimal(12, 2)
+
   TS_ATUALIZACAO   DateTime? @default(now()) @db.Timestamptz(6)
 
   @@schema("Zephira")

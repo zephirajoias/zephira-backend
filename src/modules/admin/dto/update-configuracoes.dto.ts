@@ -106,4 +106,10 @@ export class UpdateConfiguracoesDto {
   @IsOptional()
   @IsString()
   DS_TEXTO_RODAPE?: string;
+
+  // Brinde (caixinha de joia) a partir de X no carrinho. Vazio/0 desliga.
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  VL_BRINDE_MINIMO?: number;
 }
