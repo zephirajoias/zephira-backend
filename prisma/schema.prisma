@@ -279,6 +279,13 @@ model CONFIGURACOES_LOJA {
   // prisma/sql/2026-11-05-brinde-minimo.sql.
   VL_BRINDE_MINIMO Decimal? @db.Decimal(12, 2)
 
+  // % de desconto no Pix, só informativo (mostrado junto do preço na loja,
+  // ao lado de "Nx sem juros") — não muda preço real nem pagamento, é
+  // puramente visual pro cliente ter noção do valor antes de ir pro
+  // checkout. Vazio/0 desliga a linha. Mesmo padrão dos campos acima.
+  // Migração em prisma/sql/2026-11-11-desconto-pix.sql.
+  VL_DESCONTO_PIX_PERCENTUAL Decimal? @db.Decimal(5, 2)
+
   TS_ATUALIZACAO   DateTime? @default(now()) @db.Timestamptz(6)
 
   @@schema("Zephira")

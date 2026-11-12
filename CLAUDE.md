@@ -124,6 +124,24 @@ mexe em preço nem em pedido, então não precisa de cálculo no servidor
 como o frete grátis. Vazio/0 desliga o aviso. Migração em
 `prisma/sql/2026-11-05-brinde-minimo.sql`.
 
+## Desconto no Pix (visual)
+
+Pedido do Gustavo em 2026-11-11: mostrar, junto do preço do produto (card
+de listagem e página do produto), quanto ficaria no Pix — só pro cliente
+ter noção do valor antes de ir pro pagamento, igual ao "Nx sem juros" que
+já existe do lado do preço. `VL_DESCONTO_PIX_PERCENTUAL` em
+`CONFIGURACOES_LOJA` (%, mesmo padrão de `VL_BRINDE_MINIMO`/
+`VL_FRETE_GRATIS_MINIMO` — vazio/0 desliga a linha), exposto em `GET
+/configuracoes/publicas`. **É só informativo**: calculado no cliente
+(`precoComDescontoPix` em `e-commerce/src/lib/formato.ts`), não muda
+`VL_TOTAL` do pedido nem o valor cobrado no checkout — o checkout
+continua indo pro Mercado Pago (Checkout Pro) exatamente como hoje, sem
+nenhuma mudança no fluxo de pagamento. Se um dia esse desconto precisar
+ser real (abater de verdade o valor cobrado), vai exigir repensar o
+checkout pra saber o método de pagamento *antes* de gerar a preferência
+— não é o caso agora. Migração em
+`prisma/sql/2026-11-11-desconto-pix.sql`.
+
 ## Cache do catálogo público
 
 As 4 rotas de `/products` (`products.controller.ts`) respondem com
@@ -471,16 +489,15 @@ leitura.
 
 ## Migrações pendentes (checar antes de assumir que um campo existe)
 
-`2026-09-26-melhorias.sql`, `2026-11-04-paginas-institucionais.sql` e
-`2026-11-05-home-editavel.sql` (banner/Combinações/rodapé da home)
-já rodaram em produção (confirmado em 2026-11-05 via
+`2026-09-26-melhorias.sql`, `2026-11-04-paginas-institucionais.sql`,
+`2026-11-05-home-editavel.sql` (banner/Combinações/rodapé da home) e
+`2026-11-05-brinde-minimo.sql` já rodaram em produção (confirmado via
 `information_schema.columns` direto no container). Falta rodar:
 
-- `prisma/sql/2026-11-05-brinde-minimo.sql` — `VL_BRINDE_MINIMO` (ver
-  seção "Brinde a partir de um valor"). Sem ela, salvar Configurações
-  Gerais cai no fallback de `CAMPOS_ESTAVEIS` (perde só esse campo, o
-  resto do formulário salva normal) e o carrinho simplesmente não
-  mostra o aviso.
+- `prisma/sql/2026-11-11-desconto-pix.sql` — `VL_DESCONTO_PIX_PERCENTUAL`
+  (ver seção "Desconto no Pix (visual)"). Sem ela, salvar Configurações
+  Gerais cai no fallback de `CAMPOS_ESTAVEIS` (perde só esse campo) e a
+  loja simplesmente não mostra a linha de desconto no Pix.
 
 Nenhuma migração mexe em dado existente (só `ADD COLUMN IF NOT
 EXISTS`/`CREATE TABLE IF NOT EXISTS`), então o site não quebra por
@@ -513,3 +530,11 @@ porta 5432 do Supabase (ver "Infra — instabilidades conhecidas").
   de um valor calculado de verdade no carrinho (ver seções próprias).
   Brinde (caixinha de joia) a partir de um valor, aviso no carrinho —
   `VL_BRINDE_MINIMO`, migração ainda não rodada.
+- **2026-11-11** — Desconto no Pix exibido junto do preço (card de
+  produto e página do produto), só visual/informativo —
+  `VL_DESCONTO_PIX_PERCENTUAL`, migração ainda não rodada (ver seção
+  "Desconto no Pix (visual)"). Toast do admin centralizado em
+  `admin/src/lib/toast.ts` (ver `apps/CLAUDE.md`). Corrigido o carrossel
+  do banner da home, que forçava altura fixa em px e cortava a imagem
+  nas laterais no celular — agora a caixa segue a proporção real da
+  foto (ver `apps/CLAUDE.md`).

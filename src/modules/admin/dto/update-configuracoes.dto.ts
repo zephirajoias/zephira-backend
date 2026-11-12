@@ -112,4 +112,11 @@ export class UpdateConfiguracoesDto {
   @Type(() => Number)
   @IsNumber()
   VL_BRINDE_MINIMO?: number;
+
+  // % de desconto no Pix, só informativo (mostrado junto do preço na
+  // loja). Vazio/0 desliga a linha.
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  VL_DESCONTO_PIX_PERCENTUAL?: number;
 }

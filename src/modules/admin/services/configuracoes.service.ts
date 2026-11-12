@@ -49,6 +49,7 @@ const CAMPOS_NOVOS = [
   'DS_INSTAGRAM',
   'DS_TEXTO_RODAPE',
   'VL_BRINDE_MINIMO',
+  'VL_DESCONTO_PIX_PERCENTUAL',
 ] as const;
 
 @Injectable()
@@ -102,6 +103,7 @@ export class ConfiguracoesService {
       DS_INSTAGRAM: dto.DS_INSTAGRAM,
       DS_TEXTO_RODAPE: dto.DS_TEXTO_RODAPE,
       VL_BRINDE_MINIMO: dto.VL_BRINDE_MINIMO ?? null,
+      VL_DESCONTO_PIX_PERCENTUAL: dto.VL_DESCONTO_PIX_PERCENTUAL ?? null,
       TS_ATUALIZACAO: new Date(),
     };
 
@@ -387,6 +389,9 @@ export class ConfiguracoesService {
           // Brinde (caixinha de joia) a partir de X — carrinho da loja.
           // Migração prisma/sql/2026-11-05-brinde-minimo.sql.
           VL_BRINDE_MINIMO: true,
+          // % de desconto no Pix, só informativo (ver nota no schema).
+          // Migração prisma/sql/2026-11-11-desconto-pix.sql.
+          VL_DESCONTO_PIX_PERCENTUAL: true,
         },
       });
     } catch (err) {
@@ -423,6 +428,7 @@ export class ConfiguracoesService {
         DS_URL_FOTO_COMBINACAO_2: null,
         DS_TEXTO_RODAPE: null,
         VL_BRINDE_MINIMO: null,
+        VL_DESCONTO_PIX_PERCENTUAL: null,
       }
     );
   }
