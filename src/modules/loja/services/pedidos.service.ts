@@ -126,55 +126,13 @@ export class PedidosService {
     }
 
     if (dto.DS_CODIGO_PROMOCIONAL) {
-      const promo = await this.prismaService.pROMOCOES.findUnique({
-        where: { DS_CODIGO: dto.DS_CODIGO_PROMOCIONAL },
-      });
-
-      if (!promo || promo.SN_ATIVO !== 1) {
-        throw new BadRequestException('Código promocional inválido.');
-      }
-
-      const agora = new Date();
-      if (promo.DT_INICIO > agora || (promo.DT_FIM && promo.DT_FIM < agora)) {
-        throw new BadRequestException('Código promocional expirado.');
-      }
-
-      if (
-        promo.QT_LIMITE_USO !== null &&
-        (promo.QT_USOS_ATUAL ?? 0) >= promo.QT_LIMITE_USO
-      ) {
-        throw new BadRequestException(
-          'Código promocional atingiu o limite de uso.',
-        );
-      }
-
-      if (
-        promo.VL_PEDIDO_MINIMO &&
-        subtotal < Number(promo.VL_PEDIDO_MINIMO)
-      ) {
-        throw new BadRequestException(
-          `Pedido mínimo para esse cupom: ${promo.VL_PEDIDO_MINIMO}.`,
-        );
-      }
-
-      switch (promo.TP_PROMOCAO) {
-        case 'PERCENTUAL':
-          desconto = subtotal * (Number(promo.VL_DESCONTO ?? 0) / 100);
-          break;
-        case 'VALOR_FIXO':
-          desconto = Number(promo.VL_DESCONTO ?? 0);
-          break;
-        case 'FRETE_GRATIS':
-          frete = 0;
-          break;
-        default:
-          throw new BadRequestException(
-            'Este tipo de cupom ainda não é suportado no checkout.',
-          );
-      }
-
-      desconto = Math.min(desconto, subtotal);
-      promocao = { CD_PROMOCAO: promo.CD_PROMOCAO };
+      const resultado = await this.validarCupom(
+        dto.DS_CODIGO_PROMOCIONAL,
+        subtotal,
+      );
+      desconto = resultado.desconto;
+      promocao = resultado.promocao;
+      if (resultado.freteGratis) frete = 0;
     }
 
     const total = subtotal - desconto + frete;
@@ -286,6 +244,88 @@ export class PedidosService {
     void this.emailService.avisarPedido(pedido.CD_PEDIDO, 'recebido');
 
     return { ...pedido, checkoutUrl };
+  }
+
+  // Validação de verdade do cupom (usada no checkout, que também incrementa
+  // QT_USOS_ATUAL na transação). Extraída pra ser reaproveitada pelo preview
+  // do carrinho sem duplicar as regras (status/validade/limite/mínimo).
+  private async validarCupom(
+    codigo: string,
+    subtotal: number,
+  ): Promise<{
+    promocao: { CD_PROMOCAO: number };
+    desconto: number;
+    freteGratis: boolean;
+    tipo: string;
+  }> {
+    const promo = await this.prismaService.pROMOCOES.findUnique({
+      where: { DS_CODIGO: codigo },
+    });
+
+    if (!promo || promo.SN_ATIVO !== 1) {
+      throw new BadRequestException('Código promocional inválido.');
+    }
+
+    const agora = new Date();
+    if (promo.DT_INICIO > agora || (promo.DT_FIM && promo.DT_FIM < agora)) {
+      throw new BadRequestException('Código promocional expirado.');
+    }
+
+    if (
+      promo.QT_LIMITE_USO !== null &&
+      (promo.QT_USOS_ATUAL ?? 0) >= promo.QT_LIMITE_USO
+    ) {
+      throw new BadRequestException(
+        'Código promocional atingiu o limite de uso.',
+      );
+    }
+
+    if (promo.VL_PEDIDO_MINIMO && subtotal < Number(promo.VL_PEDIDO_MINIMO)) {
+      throw new BadRequestException(
+        `Pedido mínimo para esse cupom: R$ ${Number(promo.VL_PEDIDO_MINIMO).toFixed(2)}.`,
+      );
+    }
+
+    let desconto = 0;
+    let freteGratis = false;
+
+    switch (promo.TP_PROMOCAO) {
+      case 'PERCENTUAL':
+        desconto = subtotal * (Number(promo.VL_DESCONTO ?? 0) / 100);
+        break;
+      case 'VALOR_FIXO':
+        desconto = Number(promo.VL_DESCONTO ?? 0);
+        break;
+      case 'FRETE_GRATIS':
+        freteGratis = true;
+        break;
+      default:
+        throw new BadRequestException(
+          'Este tipo de cupom ainda não é suportado no checkout.',
+        );
+    }
+
+    desconto = Math.min(desconto, subtotal);
+    return {
+      promocao: { CD_PROMOCAO: promo.CD_PROMOCAO },
+      desconto,
+      freteGratis,
+      tipo: promo.TP_PROMOCAO,
+    };
+  }
+
+  // Preview pro carrinho: mesma validação do checkout, mas não grava nada
+  // (não incrementa QT_USOS_ATUAL) — só confirma se o código é válido pra
+  // esse subtotal e devolve o desconto pra mostrar na tela antes de pagar.
+  async previewCupom(
+    codigo: string,
+    subtotal: number,
+  ): Promise<{ desconto: number; freteGratis: boolean; tipo: string }> {
+    const { desconto, freteGratis, tipo } = await this.validarCupom(
+      codigo,
+      subtotal,
+    );
+    return { desconto, freteGratis, tipo };
   }
 
   async meusPedidos(

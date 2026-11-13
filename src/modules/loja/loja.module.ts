@@ -1,6 +1,7 @@
 import { EmailService } from 'src/common/email/email.service';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { CupomController } from './controllers/cupom.controller';
 import { EnderecosController } from './controllers/enderecos.controller';
 import { FreteController } from './controllers/frete.controller';
 import { PagamentoController } from './controllers/pagamento.controller';
@@ -21,6 +22,7 @@ import { SuperFreteService } from './services/superfrete.service';
     PerfilController,
     PagamentoController,
     FreteController,
+    CupomController,
   ],
   providers: [
     EmailService,

@@ -18,8 +18,8 @@ Stack: NestJS 11, Prisma 6.12 (schema `Zephira` no Postgres), Supabase
   categorias, pedidos, configurações, promoções, dashboard). Guard:
   `AdminJwtGuard`.
 - `src/modules/loja` — endpoints do cliente logado (endereços, pedidos,
-  perfil, frete, pagamento). Guard: `UserJwtGuard` (exceto frete/pagamento
-  que são públicos).
+  perfil, frete, pagamento). Guard: `UserJwtGuard` (exceto frete/pagamento/
+  cupom, que são públicos).
 - `src/modules/products` — catálogo público (sem guard). É daqui que a
   loja busca produto/categoria pra exibir.
 - `src/modules/auth` — login/registro de cliente (não confundir com login
@@ -265,6 +265,25 @@ branco, a loja continua com a foto/texto de reserva embutido no código
 da loja** (ver `[[visual-da-home-nao-mexer]]`
 na memória): são escolha visual da Thaís, só a infraestrutura de
 deixar editável é técnica.
+
+## Cupom de desconto no carrinho
+
+O admin já tinha CRUD completo de cupons (`admin/produtos/promocoes` →
+tabela `PROMOCOES`: código, tipo `PERCENTUAL`/`VALOR_FIXO`/`FRETE_GRATIS`,
+validade, pedido mínimo, limite de uso) e o checkout já sabia validar e
+aplicar `DS_CODIGO_PROMOCIONAL` (`PedidosService.checkout`) — só faltava o
+campo no carrinho pra o cliente digitar o código (2026-11-13).
+
+`PedidosService.validarCupom` (privado) tem as regras de verdade (ativo,
+dentro da validade, dentro do limite de uso, pedido mínimo) e é chamado
+tanto pelo `checkout` (que também incrementa `QT_USOS_ATUAL` na mesma
+transação do pedido) quanto por `previewCupom` (público, não grava nada).
+`POST /loja/cupons/validar` (sem guard, mesmo padrão de `/frete/calcular`
+— o carrinho confere o cupom antes de pedir login) devolve só
+`{ desconto, freteGratis, tipo }` pro carrinho mostrar o valor antes de
+pagar. O checkout confere tudo de novo na hora de criar o pedido (preview
+não é fonte de verdade — pedido mínimo pode mudar entre o preview e a
+finalização, ex: cliente tira um item do carrinho).
 
 ## Descontão (promoção em massa)
 
